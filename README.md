@@ -4,12 +4,13 @@ Raw data with filenames `<prefix>000000.dat` are summarized to `000000.xlsx` wit
 
 Optionally, the signals can be baseline-corrected (linear) and integrated between custon bounds.
 
-# Installation
+## Installation
 With `conda` and `pip`:
 `conda create -n <YOUR_ENV> python=3.10.4`
+
 `pip install git+https://github.com/LeonSaal/LC-OCD-converter.git`
 
-# Usage
+## Usage
 After installation, run `run.py` from the same environment.
 `python run.py`
 
