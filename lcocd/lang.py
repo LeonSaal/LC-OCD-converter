@@ -32,7 +32,9 @@ lang.fopen_warning = (
 lang.prog_name = "LC-OCD converter"
 lang.info = "info"
 lang.about = "about"
-lang.contact_info = "Leon Saal\nleon.saal@uba.de\n2022"
+lang.contact_info = (
+    "Leon Saal\nleon.saal@uba.de\nhttps://github.com/LeonSaal/LC-OCD-converter\n"
+)
 lang.file = "files"
 lang.file_prev = "file preview"
 lang.cl = "clear"
