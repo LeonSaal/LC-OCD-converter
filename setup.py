@@ -18,5 +18,5 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     install_requires=["pandas", "matplotlib", "dotmap", "openpyxl", "lxml", "PySimpleGUI", "ipykernel"],
-    python_requires=">=3.10.4",
+    python_requires=">=3.9",
 )
