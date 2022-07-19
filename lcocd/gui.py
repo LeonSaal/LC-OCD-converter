@@ -4,23 +4,25 @@ Created on Mon May  2 10:16:15 2022
 
 @author: Leon
 """
+import copy
+import os
+import webbrowser
+
 import PySimpleGUI as sg
 
 from ._funcs import (
     check_input,
-    run,
+    clean_figure,
+    draw_plot,
     get_dirtree,
     get_files,
-    draw_plot,
-    clean_figure,
     get_int_bounds_from_file,
+    run,
     save_to_excel,
+    sort_table,
 )
-
-from .layout import layout
-import os
-import copy
 from .lang import lang
+from .layout import layout
 
 # Default integration bounds
 default_int = [
@@ -31,9 +33,45 @@ default_int = [
 ]
 
 
-def gui():
+def info_window() -> None:
+    links = {
+        "-MAIL-": "leon.saal@uba.de",
+        "-WEB-": "github.com/LeonSaal/LC-OCD-converter",
+        "-DOI-": "Haberkamp et al.",
+    }
+    settings = {
+        "enable_events": True,
+        "text_color": "blue",
+        "font": "Arial 10 underline",
+    }
+    layout = [
+        [sg.T("Leon Saal, 2022")],
+        [
+            sg.Col(
+                [[sg.T(lang.contact)], [sg.T(lang.proj)], [sg.T(lang.defa_int_bounds)]]
+            ),
+            sg.Col([[sg.T(link, k=key, **settings)] for key, link in links.items()]),
+        ],
+    ]
+    window = sg.Window(lang.info, layout=layout)
+
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED:
+            break
+        if event == "-MAIL-":
+            webbrowser.open("mailto:leon.saal@uba.de", new=1)
+        elif event == "-WEB-":
+            webbrowser.open("https://github.com/LeonSaal/LC-OCD-converter")
+        elif event == "-DOI-":
+            webbrowser.open("https://doai.io/10.1016/j.watres.2007.05.029")
+    window.close()
+
+
+def gui() -> None:
     window = sg.Window(lang.prog_name, layout)
     clicked_row = None
+    reverse = False
 
     while True:
         event, values = window.read()
@@ -44,7 +82,7 @@ def gui():
 
         # Menu
         if event == "about":
-            sg.popup(lang.contact_info)
+            info_window()
 
         # Converter
         ## Input
@@ -107,19 +145,21 @@ def gui():
             data = window["-INTEGRALS-"].get()
             selected_rows = values["-INTEGRALS-"]
             start, end, name = (
-                values["-INP_0-"],
-                values["-INP_1-"],
+                values["-INP_0-"].replace(",", "."),
+                values["-INP_1-"].replace(",", "."),
                 values["-INP_NAME-"],
             )
             if check_input(start, end):
                 if selected_rows and clicked_row is not None:
                     data = [
-                        row if i not in selected_rows else [start, end, name]
+                        row
+                        if i not in selected_rows
+                        else [float(start), float(end), name]
                         for i, row in enumerate(data)
                     ]
                     window["-INTEGRALS-"].update(values=data, select_rows=[clicked_row])
                 else:
-                    data.append([start, end, name])
+                    data.append([float(start), float(end), name])
                     window["-INTEGRALS-"].update(values=data)
 
             else:
@@ -188,7 +228,7 @@ def gui():
                 out = run(window, values)
                 if (window["-INTEGRALS-"].get() != []) and not out.empty:
                     fname = "Integrals"
-                    save_to_excel(out, output_folder, fname)
+                    save_to_excel(out, output_folder, fname, ext=values["-FEXT-"])
 
         # Preview
         ## Select preview folder
@@ -220,14 +260,18 @@ def gui():
                 num = window["-T_FILES-"].get()[selected_file][0]
                 draw_plot(window, values, num)
                 window["-FIG_CLEAR-"].update(disabled=False, visible=True)
+            elif selected_file == -1:
+                data = window["-T_FILES-"].get()
+                window["-T_FILES-"].update(
+                    values=sort_table(data, event[2][1], reverse=reverse)
+                )
+                reverse = ~reverse
 
         ## Select file from file tree
         if event == "-F_TREE-" and values["-F_TREE-"]:
-            window["-T_FILES-"].update(
-                get_files(window["-INP_FOLDER-"].DisplayText, values["-F_TREE-"][0])
-            )
+            data = get_files(window["-INP_FOLDER-"].DisplayText, values["-F_TREE-"][0])
+            window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
 
         ## Clear figure
         if event == "-FIG_CLEAR-":
             clean_figure(window)
-

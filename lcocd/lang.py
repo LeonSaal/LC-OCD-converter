@@ -1,60 +1,69 @@
-from dotmap import DotMap
+from dataclasses import dataclass
 
 
-lang = DotMap()
-lang.sel_conv = "Select files to convert"
-lang.sel_folder = "Select folder"
-lang.incl_sub = "Include subdirectories"
-lang.sel_dest = "Select destination folder"
-lang.skip = "Skip if destination file already exists"
-lang.same_folder = "source folder"
-lang.diff_folder = "different folder"
-lang.keep_sub = "Keep folder structure"
-lang.settings = "Settings"
-lang.incl_signal = "Include:"
-lang.corr = "Corrections:"
-lang.lin_corr = "Linear baseline-correction"
-lang.int = "Integrate"
-lang.add = "add"
-lang.delete = "delete"
-lang.mod = "modify"
-lang.convert = "convert"
-lang.exit = "exit"
-lang.enter_fname = "Please enter a file name"
-lang.start = "start"
-lang.name = "name"
-lang.end = "end"
-lang.out_fname = "Destination file:"
-lang.input_warning = f"{lang.start} and {lang.end} must be both positive numbers and {lang.start} < {lang.end}!"
-lang.fopen_warning = (
-    "is openened by another program.\n To proceed, close file or enter new name."
-)
-lang.prog_name = "LC-OCD converter"
-lang.info = "info"
-lang.about = "about"
-lang.contact_info = (
-    "Leon Saal\nleon.saal@uba.de\nhttps://github.com/LeonSaal/LC-OCD-converter\n"
-)
-lang.file = "files"
-lang.file_prev = "file preview"
-lang.cl = "clear"
-lang.tip_ftable = "click row to add to graph below"
-lang.tip_itable = "click on row to modify/delete, below to add rows"
-lang.tip_ftree = "click on element to list files"
-lang.folder_browser = "browse folders"
-lang.fig = "figure"
-lang.default_int = "load default"
-lang.bounds_int = "Integration bounds"
-lang.load_int = "load from file"
-lang.err_int_load = (
-    'Error loading from file. File must contain "start", "end" and "name" in header.'
-)
-lang.warn = "Warning"
-lang.fout_exist = "already exists!"
-lang.overwr = "Overwriting"
-lang.curr_sample = "Current sample:"
-lang.convo = "conversion"
-lang.sample = "sample"
-lang.signal = "signal"
-lang.no_file_warning = "No files found in "
-lang.min = "minutes"
+@dataclass
+class EN:
+    sel_conv = "Select files to convert"
+    sel_folder = "Select folder"
+    incl_sub = "Include subdirectories"
+    sel_dest = "Select destination folder"
+    skip = "Skip if destination file already exists"
+    same_folder = "source folder"
+    diff_folder = "different folder"
+    keep_sub = "Keep folder structure"
+    settings = "Settings"
+    incl_signal = "Include:"
+    corr = "Corrections:"
+    lin_corr = "Linear baseline-correction"
+    int = "Integrate"
+    add = "add"
+    delete = "delete"
+    mod = "modify"
+    convert = "convert"
+    exit = "exit"
+    enter_fname = "Please enter a file name"
+    start = "start"
+    name = "name"
+    end = "end"
+    out_fname = "Destination file:"
+    input_warning = (
+        f"{start} and {end} must be both positive numbers and {start} < {end}!"
+    )
+    fopen_warning = (
+        "is openened by another program.\n To proceed, close file or enter new name."
+    )
+    prog_name = "LC-OCD converter"
+    info = "info"
+    about = "about"
+    contact_info = (
+        "Leon Saal\nleon.saal@uba.de\nhttps://github.com/LeonSaal/LC-OCD-converter\n"
+    )
+    file = "files"
+    file_prev = "file preview"
+    cl = "clear"
+    tip_ftable = "click row to add to graph below. Click table header to sort table"
+    tip_itable = "click on row to modify/delete, below to add rows"
+    tip_ftree = "click on element to list files"
+    folder_browser = "browse folders"
+    fig = "figure"
+    default_int = "load default"
+    bounds_int = "Integration bounds"
+    load_int = "load from file"
+    err_int_load = 'Error loading from file. File must contain "start", "end" and "name" in header.'
+    warn = "Warning"
+    fout_exist = "already exists!"
+    overwr = "Overwriting"
+    curr_sample = "Current sample:"
+    convo = "conversion"
+    sample = "sample"
+    signal = "signal"
+    no_file_warning = "No files found in "
+    min = "minutes"
+    time = "time"
+    defa_int_bounds = "Default integration bounds based on:"
+    proj = "Visit Project online:"
+    contact = "Contact:"
+    fmt = 'Output format:'
+
+
+lang = EN
