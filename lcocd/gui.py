@@ -4,33 +4,22 @@ Created on Mon May  2 10:16:15 2022
 
 @author: Leon
 """
+import configparser
 import copy
 import os
 import webbrowser
 
 import PySimpleGUI as sg
 
-from ._funcs import (
-    check_input,
-    clean_figure,
-    draw_plot,
-    get_dirtree,
-    get_files,
-    get_int_bounds_from_file,
-    run,
-    save_to_excel,
-    sort_table,
-)
+from ._align import align_window
+from ._funcs import (check_input, clean_figure, draw_plot, get_dirtree,
+                     get_files, get_int_bounds_from_file, run, save_to_excel,
+                     sort_table)
+from .cfg import SET_FILE, default_int, signals
 from .lang import lang
 from .layout import layout
 
 # Default integration bounds
-default_int = [
-    [30, 45, "Biopolymers"],
-    [45, 59, "Humic substances"],
-    [59, 66, "Low-molecular-weight acids"],
-    [66, 120, "Low-molecular-weight neutrals"],
-]
 
 
 def info_window() -> None:
@@ -56,7 +45,7 @@ def info_window() -> None:
     window = sg.Window(lang.info, layout=layout)
 
     while True:
-        event, values = window.read()
+        event, _ = window.read()
         if event == sg.WIN_CLOSED:
             break
         if event == "-MAIL-":
@@ -67,17 +56,73 @@ def info_window() -> None:
             webbrowser.open("https://doai.io/10.1016/j.watres.2007.05.029")
     window.close()
 
+def update_int(window: sg.Window, integrate:bool):
+    integration = [
+        "-INP_0-",
+        "-INP_1-",
+        "-INP_NAME-",
+        "-B_TAB_ADD-",
+        "-B_TAB_DEL-",
+        "-B_INT_DEF-",
+        "-BOUNDS_INT-",
+        "-B_INT_LOAD-",
+    ]
+    for key in integration:
+        window[key].update(disabled=not integrate)
+    pass
 
 def gui() -> None:
-    window = sg.Window(lang.prog_name, layout)
+    window = sg.Window(lang.prog_name, layout, finalize=True,enable_close_attempted_event=True)
     clicked_row = None
     reverse = False
+
+    offs = {signal: 0 for signal in signals}
+    cfg=configparser.ConfigParser()
+
+    if os.path.exists(SET_FILE):
+        cfg.read(SET_FILE)
+        if 'values' in cfg:
+            for key, value in cfg['values'].items():
+                if key.upper() in window.key_dict:
+                    if value in ['True', 'False']:
+                        val = eval(value)
+                    else:
+                        val = str(value)
+                    print(key,val)
+                    window[key.upper()].update(val)
+            update_int(window,window['-C_INT-'].get())
+        
+            
+        if 'offset' in cfg:
+            for signal in signals:
+                if signal.lower() in cfg['offset']:
+                    num = cfg['offset'][signal.lower()]
+                    try:
+                        offs[signal]=float(num)
+                    except:
+                        pass
+            text = f'{", ".join([f"{sig}: {off} {lang.min}" for sig, off in offs.items() if off!=0])}'
+            if text:
+                window['-XOFFS-'].update(f'{lang.offs}: '+text)
+
 
     while True:
         event, values = window.read()
 
         # Close window
-        if event in [sg.WIN_CLOSED]:
+        if event in [sg.WIN_CLOSE_ATTEMPTED_EVENT]:
+            if 'values' not in cfg:
+                cfg.add_section('values')
+            if 'offset' not in cfg:
+                cfg.add_section('offset')
+            for key, val in values.items():
+                if (val is not None) and (type(val) != list) and not str(key).isnumeric():
+                    cfg['values'][key] = str(val)
+            for key, val in offs.items():
+                cfg['offset'][key]=str(val)
+
+            with open(SET_FILE, "w") as configfile:
+                cfg.write(configfile)
             break
 
         # Menu
@@ -94,6 +139,7 @@ def gui() -> None:
             )
             if text:
                 window["-INP_FOLDER-"].update(text)
+                window['-ALIGN-'].update(disabled=False)
                 if not window["-PREV_FOLDER-"].DisplayText:
                     window["-PREV_FOLDER-"].update(text)
                     window["-F_TREE-"].update(get_dirtree(text))
@@ -118,23 +164,28 @@ def gui() -> None:
         if event == "-C_OUT_FOLDER-" and values["-C_OUT_FOLDER-"] == lang.same_folder:
             window["-OUT_FOLDER-"].update(window["-INP_FOLDER-"].DisplayText)
 
+        if window["-INP_FOLDER-"].DisplayText and window["-OUT_FOLDER-"].DisplayText:
+            window['-RUN-'].update(disabled=False)
+        else:
+            window['-RUN-'].update(disabled=True)
+
+        ## Settings
+        if event == '-ALIGN-':
+            new_offs = align_window(path=window["-INP_FOLDER-"].DisplayText, corr=values['-CORR-'], offs = offs) 
+            if new_offs:
+                offs=new_offs
+            if sum([abs(val) for val in offs.values()])!=0:
+                text = f'{lang.offs}: {", ".join([f"{sig}: {off} {lang.min}" for sig, off in offs.items() if off!=0])}'
+                window['-XOFFS-'].update(text)
+            else:
+                window['-XOFFS-'].update('')
+
         ## Integration
         ### Enable integration
         if event == "-C_INT-":
             if not values["-C_INT-"]:
                 window["-INTEGRALS-"].update([])
-            integration = [
-                "-INP_0-",
-                "-INP_1-",
-                "-INP_NAME-",
-                "-B_TAB_ADD-",
-                "-B_TAB_DEL-",
-                "-B_INT_DEF-",
-                "-BOUNDS_INT-",
-                "-B_INT_LOAD-",
-            ]
-            for key in integration:
-                window[key].update(disabled=not values["-C_INT-"])
+            update_int(window, values["-C_INT-"])
             if window["-B_TAB_ADD-"].get_text() == lang.add:
                 window["-B_TAB_DEL-"].update(visible=False)
             else:
@@ -215,20 +266,11 @@ def gui() -> None:
 
         ## Run conversion
         if event == "-RUN-":
-            if not window["-INP_FOLDER-"].DisplayText:
-                sg.popup(lang.sel_conv)
-                text = sg.popup_get_folder(lang.enter_fname, no_window=True)
-                if text:
-                    window["-INP_FOLDER-"].update(text)
-                    if values["-C_OUT_FOLDER-"] == lang.same_folder:
-                        window["-OUT_FOLDER-"].update(text)
-                    window["-F_TREE-"].update(get_dirtree(text))
-            else:
-                output_folder = window["-OUT_FOLDER-"].DisplayText
-                out = run(window, values)
-                if (window["-INTEGRALS-"].get() != []) and not out.empty:
-                    fname = "Integrals"
-                    save_to_excel(out, output_folder, fname, ext=values["-FEXT-"])
+            output_folder = window["-OUT_FOLDER-"].DisplayText
+            out = run(window, values, offs)
+            if (window["-INTEGRALS-"].get() != []) and not out.empty:
+                fname = "Integrals"
+                save_to_excel(out, output_folder, fname, ext=values["-FEXT-"])
 
         # Preview
         ## Select preview folder
@@ -258,7 +300,7 @@ def gui() -> None:
                 )
             ):
                 num = window["-T_FILES-"].get()[selected_file][0]
-                draw_plot(window, values, num)
+                draw_plot(window, values, num, offs)
                 window["-FIG_CLEAR-"].update(disabled=False, visible=True)
             elif selected_file == -1:
                 data = window["-T_FILES-"].get()
@@ -269,7 +311,7 @@ def gui() -> None:
 
         ## Select file from file tree
         if event == "-F_TREE-" and values["-F_TREE-"]:
-            data = get_files(window["-INP_FOLDER-"].DisplayText, values["-F_TREE-"][0])
+            data = get_files(values["-F_TREE-"][0])
             window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
 
         ## Clear figure

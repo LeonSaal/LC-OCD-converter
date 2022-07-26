@@ -8,7 +8,7 @@ class EN:
     incl_sub = "Include subdirectories"
     sel_dest = "Select destination folder"
     skip = "Skip if destination file already exists"
-    same_folder = "source folder"
+    same_folder = "Source folder"
     diff_folder = "different folder"
     keep_sub = "Keep folder structure"
     settings = "Settings"
@@ -64,6 +64,10 @@ class EN:
     proj = "Visit Project online:"
     contact = "Contact:"
     fmt = 'Output format:'
-
+    align='align'
+    reset = 'reset'
+    curs='cursor'
+    offs = 'offset'
+    browse_files = 'browse files'
 
 lang = EN

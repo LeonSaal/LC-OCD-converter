@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 
+from .cfg import signals
 from .lang import lang
 
 default_folder = ""
@@ -40,15 +41,13 @@ out_frame = [
 set_frame = [
     [
         sg.T(lang.incl_signal),
-        sg.CBox("OC", default=True, key="-OC-"),
-        sg.CBox("UV", default=True, key="-UV-"),
-        sg.CBox("UV2", default=True, key="-UV2-"),
-        sg.CBox("t", default=False, key="-T-"),
+        *[sg.CBox(signal, default=True, key=f'-{signal.upper()}-', enable_events=True) for signal in signals],
     ],
     [
         sg.T(lang.corr),
         sg.CBox(lang.lin_corr, default=True, key="-CORR-"),
     ],
+    [sg.B(lang.align, k='-ALIGN-', disabled=True, enable_events=True), sg.T('',k='-XOFFS-')]
     
 ]
 
@@ -101,7 +100,7 @@ tab1_layout = [
     [sg.VPush()],
     [sg.Frame(lang.int, int_frame, expand_x=True)],
     [sg.VPush()],
-    [sg.Button(lang.convert, key="-RUN-"), sg.Push()],
+    [sg.Button(lang.convert, key="-RUN-", disabled=True), sg.Push()],
 ]
 
 # File browser frame

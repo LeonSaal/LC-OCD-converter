@@ -9,10 +9,11 @@ import re
 import time
 from itertools import cycle
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import PySimpleGUI as sg
 from matplotlib import rcParams
@@ -85,8 +86,12 @@ def save_to_excel(out: pd.DataFrame, output_folder: str, fname: str, ext: str):
             if not fname:
                 return
 
+def shift(df:pd.DataFrame, toff:float):
+    ioff = df.index.get_indexer([abs(toff)], method ='nearest')[0]
+    sign = np.sign(toff)
+    return df.shift(int(sign*ioff), fill_value=min(df.values)[0])
 
-def convert(fnames, input_folder, corr=True):
+def convert(fnames:Iterable, input_folder:str, offs:Mapping , corr: bool=True):
     data = [
         pd.read_csv(
             os.path.join(input_folder, fname),
@@ -101,10 +106,10 @@ def convert(fnames, input_folder, corr=True):
         )
         for fname in fnames
     ]
+    data = [shift(df,offs[df.columns[0]]) for df in data]
     df = pd.concat(data, axis=1)
     if corr:
-        df = df.apply(lambda x: x.subtract(min(x)))
-
+        df = df.apply(lambda x: x.subtract(min(x), fill_value = min(x)))
     return df
 
 
@@ -116,7 +121,7 @@ def integrate(df, bounds):
     return pd.concat(integrals, axis=1)
 
 
-def run(window, values, save=True):
+def run(window:sg.Window, values:Mapping, offs:Mapping, save:bool=True):
     input_folder = window["-INP_FOLDER-"].DisplayText
     output_folder = window["-OUT_FOLDER-"].DisplayText
     bounds = window["-INTEGRALS-"].get()
@@ -173,7 +178,7 @@ def run(window, values, save=True):
                 )
             ]
             if fnames:
-                df = convert(fnames, root, corr=values["-CORR-"])
+                df = convert(fnames, root, offs, corr=values["-CORR-"])
 
                 if save:
                     save_to_excel(df, output_folder, f"{num}", values["-FEXT-"])
@@ -205,8 +210,10 @@ def get_dirtree(grandparent):
     return treedata
 
 
-def get_files(parent, path):
+def get_files(path):
     prefix = ["OC_", "UV_", "UV2", "T_"]
+    if not path:
+        return []
     files = os.listdir(path)
     nums = list(
         set([file[-9:-4] for file in files if re.fullmatch(".{2,3}\d{5}\.dat", file)])
@@ -238,7 +245,7 @@ def sort_table(values: Iterable, col: int, reverse: bool):
     return sorted(values, key=lambda x: x[col], reverse=reverse)
 
 
-def draw_plot(window, values, num):
+def draw_plot(window:sg.Window, values:Mapping, num:str, offs:Mapping):
     # https://github.com/PySimpleGUI/PySimpleGUI/blob/master/DemoPrograms/Demo_Matplotlib_Embedded_Toolbar.py
     # ------------------------------- PASTE YOUR MATPLOTLIB CODE HERE
     path = values["-F_TREE-"][0]
@@ -260,7 +267,7 @@ def draw_plot(window, values, num):
         )
     ]
     if fnames:
-        df = convert(fnames, path, corr=values["-CORR-"])
+        df = convert(fnames, path,offs, corr=values["-CORR-"])
 
     else:
         return
@@ -297,7 +304,6 @@ def draw_plot(window, values, num):
         )
     )
     legend_elements["labels"].append(f"{num}")
-    print(to_add, in_graph, lss)
     base_legend_elements = {
         "handles": [
             Line2D([0], [0], color="black", ls=ls, markersize=10)
