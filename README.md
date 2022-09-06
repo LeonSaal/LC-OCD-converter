@@ -9,6 +9,8 @@ With `conda` and `pip`:
 
 `conda create -n <YOUR_ENV> python=3.10.4`
 
+`conda activate <YOUR_ENV>`
+
 `pip install git+https://github.com/LeonSaal/LC-OCD-converter.git`
 
 ## Usage
