@@ -31,36 +31,38 @@ def draw_plot(window:sg.Window, values:Mapping, num: str, path:str, corr: bool, 
     df = convert(fnames, path, offs, corr=corr)
 
     lss = {"OC": "solid", "UV": "dashdot", "UV2": "dashed", "t": "dotted"}
-    plt.figure(2)
-    fig =plt.gcf()
-    try:
+    with plt.ion():
+        plt.figure(2)
+        fig =plt.gcf()
+        #try:
         fig.clear(keep_observers=True)
-    except:
-        pass
-    DPI = fig.get_dpi()
-    # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
-    fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
-    # -------------------------------
+        # except:
+        #     pass
+        DPI = fig.get_dpi()
+        # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
+        fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
+        # -------------------------------
 
-    for plot in df:
-        plt.plot(df[plot], color ='black', ls=lss[plot])
+        for plot in df:
+            plt.plot(df[plot], color ='black', ls=lss[plot])
 
-    plt.vlines([values['x']],*plt.ylim(),color='gray')
-    base_legend_elements = {
-        "handles": [
-            Line2D([0], [0], color="black", ls=ls, markersize=10)
-            for ls in lss.values()
-        ],
-        "labels": [name for name in lss.keys()],
-    }
+        plt.vlines([values['x']],*plt.ylim(),color='gray')
+        base_legend_elements = {
+            "handles": [
+                Line2D([0], [0], color="black", ls=ls, markersize=10)
+                for ls in lss.values()
+            ],
+            "labels": [name for name in lss.keys()],
+        }
 
-    plt.xlabel(lang.min)
-    plt.legend(**base_legend_elements, loc="upper left")
+        plt.xlabel(lang.min)
+        plt.legend(**base_legend_elements, loc="upper left")
+        plt.show(block=False)
 
-    # ------------------------------- Instead of plt.show()
-    draw_figure_w_toolbar(
-        window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
-    )
+        # ------------------------------- Instead of plt.show()
+        # draw_figure_w_toolbar(
+        #     window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
+        # )
     
 
 
@@ -85,21 +87,22 @@ def align_window(path:str, corr:bool, offs:Mapping):
     layout=[[frame_table],
                 [frame_slider],
                 [sg.Push(),sg.Canvas(key="-CONTROLS-"),],
-                [
-                sg.Column(
-                    layout=[
-                        [
-                            sg.Canvas(
-                                key="-FIGURE-",
-                                # it's important that you set this size
-                                size=(400 * 2, 400),
-                            )
-                        ]
-                    ],
-                    background_color="#DAE0E6",
-                    pad=(0, 0),
-                )
-            ],]
+            #     [
+            #     sg.Column(
+            #         layout=[
+            #             [
+            #                 sg.Canvas(
+            #                     key="-FIGURE-",
+            #                     # it's important that you set this size
+            #                     size=(400 * 2, 400),
+            #                 )
+            #             ]
+            #         ],
+            #         background_color="#DAE0E6",
+            #         pad=(0, 0),
+            #     )
+            # ],
+            ]
 
     window= sg.Window(lang.align,layout=layout)
     reverse = False

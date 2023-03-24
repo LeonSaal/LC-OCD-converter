@@ -70,12 +70,13 @@ def is_pos_float(x: str):
     return False
 
 
-def save_to_excel(out: pd.DataFrame, output_folder: str, fname: str, ext: str):
+def save_data(out: pd.DataFrame, output_folder: str, fname: str, values: dict):
     save = False
+    ext = values['-FEXT-']
     while not save:
         path = os.path.join(output_folder, f"{fname}{ext}")
         try:
-            out.to_excel(path, merge_cells=False)
+            out.to_excel(path, merge_cells=False) if ext != '.csv' else out.to_csv(path)
             save = True
         except PermissionError:
             fname = sg.popup_get_text(
@@ -121,7 +122,7 @@ def integrate(df, bounds):
     return pd.concat(integrals, axis=1)
 
 
-def run(window:sg.Window, values:Mapping, offs:Mapping, save:bool=True):
+def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
     input_folder = window["-INP_FOLDER-"].DisplayText
     output_folder = window["-OUT_FOLDER-"].DisplayText
     bounds = window["-INTEGRALS-"].get()
@@ -146,7 +147,7 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, save:bool=True):
 
         for i, num in enumerate(nums):
             f_out = f"{num}{values['-FEXT-']}"
-            if f_out in out_files:
+            if (f_out in out_files) and job==lang.convo:
                 if values["-OUT_SKIP-"]:
                     msg = f'"{f_out}" {lang.fout_exist}'
                 else:
@@ -155,7 +156,7 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, save:bool=True):
                 msg = f'{lang.curr_sample} "{num}"'
 
             if not sg.one_line_progress_meter(
-                lang.convo,
+                job,
                 i + 1,
                 len(nums),
                 root,
@@ -164,7 +165,7 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, save:bool=True):
             ):
                 return out
 
-            if f_out in out_files and values["-OUT_SKIP-"]:
+            if f_out in out_files and values["-OUT_SKIP-"] and (job==lang.convo):
                 continue
             fnames = [
                 file
@@ -180,8 +181,8 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, save:bool=True):
             if fnames:
                 df = convert(fnames, root, offs, corr=values["-CORR-"])
 
-                if save:
-                    save_to_excel(df, output_folder, f"{num}", values["-FEXT-"])
+                if job==lang.convo:
+                    save_data(df, output_folder, f"{num}", values)
 
                 if window["-INTEGRALS-"].get() != []:
                     integrals = pd.concat(
@@ -273,59 +274,61 @@ def draw_plot(window:sg.Window, values:Mapping, num:str, offs:Mapping):
         return
 
     lss = {"OC": "solid", "UV": "dashdot", "UV2": "dashed", "t": "dotted"}
-    plt.figure(1)
-    fig = plt.gcf()
-    DPI = fig.get_dpi()
-    # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
-    fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
-    # -------------------------------
-    to_add = [col for col in df.columns if num not in legend_elements["labels"]]
-    if not to_add:
-        return
-    in_graph.update(to_add)
-    color = next(colors)
+    with plt.ion():
+        plt.figure(1)
+        fig = plt.gcf()
+        DPI = fig.get_dpi()
+        # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
+        fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
+        # -------------------------------
+        to_add = [col for col in df.columns if num not in legend_elements["labels"]]
+        if not to_add:
+            return
+        in_graph.update(to_add)
+        color = next(colors)
 
-    for plot in to_add:
-        plt.plot(df[plot], color=color, ls=lss[plot])
+        for plot in to_add:
+            plt.plot(df[plot], color=color, ls=lss[plot])
 
-    if values["-BOUNDS_INT-"]:
-        start = [elem[0] for elem in window["-INTEGRALS-"].get()]
-        plt.vlines(start, ymin=0, ymax=plt.ylim()[1], colors="gray")
+        if values["-BOUNDS_INT-"]:
+            start = [elem[0] for elem in window["-INTEGRALS-"].get()]
+            plt.vlines(start, ymin=0, ymax=plt.ylim()[1], colors="gray")
 
-    legend_elements["handles"].append(
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            markerfacecolor=color,
-            markeredgecolor="none",
-            ls="none",
-            markersize=10,
+        legend_elements["handles"].append(
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                markerfacecolor=color,
+                markeredgecolor="none",
+                ls="none",
+                markersize=10,
+            )
         )
-    )
-    legend_elements["labels"].append(f"{num}")
-    base_legend_elements = {
-        "handles": [
-            Line2D([0], [0], color="black", ls=ls, markersize=10)
-            for key, ls in lss.items()
-            if key in in_graph
-        ],
-        "labels": [name for key, name in names.items() if name in in_graph],
-    }
+        legend_elements["labels"].append(f"{num}")
+        base_legend_elements = {
+            "handles": [
+                Line2D([0], [0], color="black", ls=ls, markersize=10)
+                for key, ls in lss.items()
+                if key in in_graph
+            ],
+            "labels": [name for key, name in names.items() if name in in_graph],
+        }
 
-    objs = plt.gca().findobj(matplotlib.legend.Legend)
-    for obj in objs:
-        obj.remove()
+        objs = plt.gca().findobj(matplotlib.legend.Legend)
+        for obj in objs:
+            obj.remove()
 
-    plt.xlabel(lang.min)
-    base_legend = plt.legend(**base_legend_elements, loc="upper left")
-    plt.legend(**legend_elements, loc="upper right")
-    plt.gca().add_artist(base_legend)
+        plt.xlabel(lang.min)
+        base_legend = plt.legend(**base_legend_elements, loc="upper left")
+        plt.legend(**legend_elements, loc="upper right")
+        plt.gca().add_artist(base_legend)
+        plt.show(block=True)
 
     # ------------------------------- Instead of plt.show()
-    draw_figure_w_toolbar(
-        window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
-    )
+    # draw_figure_w_toolbar(
+    #     window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
+    # )
 
 
 def clean_figure(window):
@@ -333,12 +336,13 @@ def clean_figure(window):
     in_graph = set()
     colors = cycle([color["color"] for color in rcParams["axes.prop_cycle"]])
     legend_elements = {"handles": [], "labels": []}
-    fig = plt.gcf()
-    fig.clear(keep_observers=True)
-    draw_figure_w_toolbar(
-        window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
-    )
-    window["-FIG_CLEAR-"].update(disabled=True)
+    with plt.ion():
+        fig = plt.gcf()
+        fig.clear(keep_observers=True)
+    # draw_figure_w_toolbar(
+    #     window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
+    # )
+    #window["-FIG_CLEAR-"].update(disabled=True)
 
 
 def get_int_bounds_from_file(path):

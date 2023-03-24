@@ -13,7 +13,7 @@ import PySimpleGUI as sg
 
 from ._align import align_window
 from ._funcs import (check_input, clean_figure, draw_plot, get_dirtree,
-                     get_files, get_int_bounds_from_file, run, save_to_excel,
+                     get_files, get_int_bounds_from_file, run, save_data,
                      sort_table)
 from .cfg import SET_FILE, default_int, signals
 from .lang import lang
@@ -90,7 +90,7 @@ def gui() -> None:
                         val = str(value)
                     print(key,val)
                     window[key.upper()].update(val)
-            update_int(window,window['-C_INT-'].get())
+            #update_int(window,window['-C_INT-'].get())
         
             
         if 'offset' in cfg:
@@ -140,9 +140,7 @@ def gui() -> None:
             if text:
                 window["-INP_FOLDER-"].update(text)
                 window['-ALIGN-'].update(disabled=False)
-                if not window["-PREV_FOLDER-"].DisplayText:
-                    window["-PREV_FOLDER-"].update(text)
-                    window["-F_TREE-"].update(get_dirtree(text))
+                window["-F_TREE-"].update(get_dirtree(text))
                 if values["-C_OUT_FOLDER-"] == lang.same_folder:
                     window["-OUT_FOLDER-"].update(text)
 
@@ -166,8 +164,10 @@ def gui() -> None:
 
         if window["-INP_FOLDER-"].DisplayText and window["-OUT_FOLDER-"].DisplayText:
             window['-RUN-'].update(disabled=False)
+            window['-B_INT-'].update(disabled=False)
         else:
             window['-RUN-'].update(disabled=True)
+            window['-B_INT-'].update(disabled=True)
 
         ## Settings
         if event == '-ALIGN-':
@@ -182,14 +182,14 @@ def gui() -> None:
 
         ## Integration
         ### Enable integration
-        if event == "-C_INT-":
-            if not values["-C_INT-"]:
-                window["-INTEGRALS-"].update([])
-            update_int(window, values["-C_INT-"])
-            if window["-B_TAB_ADD-"].get_text() == lang.add:
-                window["-B_TAB_DEL-"].update(visible=False)
-            else:
-                window["-B_TAB_DEL-"].update(visible=True)
+        # if event == "-C_INT-":
+        if event == '-B_INT_CLEAR-':
+            window["-INTEGRALS-"].update([])
+        #     update_int(window, values["-C_INT-"])
+        #     if window["-B_TAB_ADD-"].get_text() == lang.add:
+        #         window["-B_TAB_DEL-"].update(visible=False)
+        #     else:
+        #         window["-B_TAB_DEL-"].update(visible=True)
 
         ### Add row to integration table
         if event == "-B_TAB_ADD-":
@@ -264,26 +264,34 @@ def gui() -> None:
                     sg.popup(lang.err_int_load, title=lang.warn)
                     os.startfile(fpath)
 
+        ### Run integration
+        if (event == '-B_INT-') and (window["-INTEGRALS-"].get() != []):
+            output_folder = window["-OUT_FOLDER-"].DisplayText
+            out = run(window, values, offs, job=lang.int)
+            if not out.empty:
+                fname = window['-INT_FNAME-'].get()
+                save_data(out, output_folder, fname, values)
+
         ## Run conversion
         if event == "-RUN-":
             output_folder = window["-OUT_FOLDER-"].DisplayText
-            out = run(window, values, offs)
-            if (window["-INTEGRALS-"].get() != []) and not out.empty:
-                fname = "Integrals"
-                save_to_excel(out, output_folder, fname, ext=values["-FEXT-"])
+            out = run(window, values, offs, job=lang.convo)
+            # if (window["-INTEGRALS-"].get() != []) and not out.empty:
+            #     fname = "Integrals"
+            #     save_data(out, output_folder, fname, values)
 
         # Preview
         ## Select preview folder
-        if event == "-B_PREV_FOLDER-":
-            text = sg.popup_get_folder(
-                lang.enter_fname,
-                no_window=True,
-                initial_folder=window["-PREV_FOLDER-"].DisplayText,
-            )
-            if text:
-                window["-PREV_FOLDER-"].update(text)
-                window["-F_TREE-"].update(get_dirtree(text))
-                window["-T_FILES-"].update([])
+        # if event == "-B_PREV_FOLDER-":
+        #     text = sg.popup_get_folder(
+        #         lang.enter_fname,
+        #         no_window=True,
+        #         initial_folder=window["-PREV_FOLDER-"].DisplayText,
+        #     )
+        #     if text:
+        #         window["-PREV_FOLDER-"].update(text)
+        #         window["-F_TREE-"].update(get_dirtree(text))
+        #         window["-T_FILES-"].update([])
 
         ## Select file from file table and add it to figure
         if event[0] == "-T_FILES-":

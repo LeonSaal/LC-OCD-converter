@@ -3,10 +3,10 @@ from dataclasses import dataclass
 
 @dataclass
 class EN:
-    sel_conv = "Select files to convert"
+    sel_conv = "Input folder"
     sel_folder = "Select folder"
     incl_sub = "Include subdirectories"
-    sel_dest = "Select destination folder"
+    sel_dest = "Output folder"
     skip = "Skip if destination file already exists"
     same_folder = "Source folder"
     diff_folder = "different folder"
@@ -19,9 +19,10 @@ class EN:
     add = "add"
     delete = "delete"
     mod = "modify"
-    convert = "convert"
+    convert = "Convert"
     exit = "exit"
-    enter_fname = "Please enter a file name"
+    fname = 'File name'
+    enter_fname = f"Please enter a {fname.lower()}"
     start = "start"
     name = "name"
     end = "end"
@@ -39,7 +40,7 @@ class EN:
         "Leon Saal\nleon.saal@uba.de\nhttps://github.com/LeonSaal/LC-OCD-converter\n"
     )
     file = "files"
-    file_prev = "file preview"
+    file_prev = "File preview"
     cl = "clear"
     tip_ftable = "click row to add to graph below. Click table header to sort table"
     tip_itable = "click on row to modify/delete, below to add rows"
@@ -69,5 +70,7 @@ class EN:
     curs='cursor'
     offs = 'offset'
     browse_files = 'browse files'
+    sat = 'saturation'
+    
 
 lang = EN
