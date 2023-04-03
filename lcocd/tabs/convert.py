@@ -17,6 +17,6 @@ tab_conversion = [
     #[sg.Frame(lang.corr, corrections_frame, expand_x=True)],
     #[sg.VPush()],
     #[sg.Frame(lang.int, int_frame, expand_x=True)],
-    #[sg.VPush()],
-    [sg.Button(lang.convert, key="-RUN-", disabled=True), sg.Push()],
+    [sg.VPush()],
+    [sg.Push(),sg.Button(lang.convert, key="-RUN-", disabled=True), sg.Push()],
 ]

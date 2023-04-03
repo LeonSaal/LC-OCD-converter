@@ -16,16 +16,16 @@ class EN:
     corr = "Corrections:"
     lin_corr = "Linear baseline-correction"
     int = "Integrate"
-    add = "add"
-    delete = "delete"
-    mod = "modify"
+    add = "Add"
+    delete = "Delete"
+    mod = "Modify"
     convert = "Convert"
-    exit = "exit"
+    exit = "Exit"
     fname = 'File name'
     enter_fname = f"Please enter a {fname.lower()}"
-    start = "start"
-    name = "name"
-    end = "end"
+    start = "Start"
+    name = "Name"
+    end = "End"
     out_fname = "Destination file:"
     input_warning = (
         f"{start} and {end} must be both positive numbers and {start} < {end}!"
@@ -39,25 +39,25 @@ class EN:
     contact_info = (
         "Leon Saal\nleon.saal@uba.de\nhttps://github.com/LeonSaal/LC-OCD-converter\n"
     )
-    file = "files"
+    file = "Files"
     file_prev = "File preview"
-    cl = "clear"
-    tip_ftable = "click row to add to graph below. Click table header to sort table"
-    tip_itable = "click on row to modify/delete, below to add rows"
-    tip_ftree = "click on element to list files"
-    folder_browser = "browse folders"
-    fig = "figure"
-    default_int = "load default"
+    cl = "Clear"
+    tip_ftable = "Click row to add to graph below. Click table header to sort table"
+    tip_itable = "Click on row to modify/delete, below to add rows"
+    tip_ftree = "Click on element to list files"
+    folder_browser = "Browse folder"
+    fig = "Figure"
+    default_int = "Load default"
     bounds_int = "Integration bounds"
-    load_int = "load from file"
+    load_int = "Load from file"
     err_int_load = 'Error loading from file. File must contain "start", "end" and "name" in header.'
     warn = "Warning"
     fout_exist = "already exists!"
     overwr = "Overwriting"
     curr_sample = "Current sample:"
-    convo = "conversion"
-    sample = "sample"
-    signal = "signal"
+    convo = "Conversion"
+    sample = "Sample"
+    signal = "Signal"
     no_file_warning = "No files found in "
     min = "minutes"
     time = "time"
@@ -65,11 +65,11 @@ class EN:
     proj = "Visit Project online:"
     contact = "Contact:"
     fmt = 'Output format:'
-    align='align'
-    reset = 'reset'
-    curs='cursor'
-    offs = 'offset'
-    browse_files = 'browse files'
+    align='Align'
+    reset = 'Reset'
+    curs='Cursor'
+    offs = 'Offset'
+    browse_files = 'Browse files'
     sat = 'saturation'
     
 

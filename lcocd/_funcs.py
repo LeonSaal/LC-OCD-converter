@@ -118,8 +118,9 @@ def integrate(df, bounds):
     integrals = []
     for start, end, key in bounds:
         subset = df[(df.index >= float(start)) & (df.index < float(end))]
-        integrals.append(subset.sum().rename(key))
+        integrals.append(subset.sum().rename(f'{key} ({start} - {end} {lang.min})'))
     return pd.concat(integrals, axis=1)
+  
 
 
 def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
@@ -190,7 +191,9 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
                         keys=[(num)],
                         names=[lang.sample, lang.signal],
                     )
+                    
                     out = pd.concat([out, integrals], axis=0)
+                    
         if not values["-INP_SUBFOLDERS-"]:
             if not nums:
                 sg.popup(f'{lang.no_file_warning} in "{root}"')
