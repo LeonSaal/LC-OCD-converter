@@ -18,6 +18,7 @@ from ._funcs import (check_input, clean_figure, draw_plot, get_dirtree,
 from .cfg import SET_FILE, default_int, signals
 from .lang import lang
 from .layout import layout
+import pandas as pd
 
 # Default integration bounds
 
@@ -268,6 +269,8 @@ def gui() -> None:
         if (event == '-B_INT-') and (window["-INTEGRALS-"].get() != []):
             output_folder = window["-OUT_FOLDER-"].DisplayText
             out = run(window, values, offs, job=lang.int)
+            mindex = pd.MultiIndex.from_tuples([(key, f'{start} - {end}') for start, end, key in window["-INTEGRALS-"].get()])
+            out.columns = mindex
             if not out.empty:
                 fname = window['-INT_FNAME-'].get()
                 save_data(out, output_folder, fname, values)
