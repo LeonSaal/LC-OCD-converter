@@ -17,11 +17,11 @@ import numpy as np
 import pandas as pd
 import PySimpleGUI as sg
 from matplotlib import rcParams
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
-                                               NavigationToolbar2Tk)
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.lines import Line2D
 
 from .lang import lang
+from .cfg import AU_THRESH
 
 colors = cycle([color["color"] for color in rcParams["axes.prop_cycle"]])
 legend_elements = {"handles": [], "labels": []}
@@ -72,11 +72,11 @@ def is_pos_float(x: str):
 
 def save_data(out: pd.DataFrame, output_folder: str, fname: str, values: dict):
     save = False
-    ext = values['-FEXT-']
+    ext = values["-FEXT-"]
     while not save:
         path = os.path.join(output_folder, f"{fname}{ext}")
         try:
-            out.to_excel(path, merge_cells=False) if ext != '.csv' else out.to_csv(path)
+            out.to_excel(path, merge_cells=False) if ext != ".csv" else out.to_csv(path)
             save = True
         except PermissionError:
             fname = sg.popup_get_text(
@@ -87,12 +87,14 @@ def save_data(out: pd.DataFrame, output_folder: str, fname: str, values: dict):
             if not fname:
                 return
 
-def shift(df:pd.DataFrame, toff:float):
-    ioff = df.index.get_indexer([abs(toff)], method ='nearest')[0]
-    sign = np.sign(toff)
-    return df.shift(int(sign*ioff), fill_value=min(df.values)[0])
 
-def convert(fnames:Iterable, input_folder:str, offs:Mapping , corr: bool=True):
+def shift(df: pd.DataFrame, toff: float):
+    ioff = df.index.get_indexer([abs(toff)], method="nearest")[0]
+    sign = np.sign(toff)
+    return df.shift(int(sign * ioff), fill_value=min(df.values)[0])
+
+
+def convert(fnames: Iterable, input_folder: str, offs: Mapping, corr: bool = True):
     data = [
         pd.read_csv(
             os.path.join(input_folder, fname),
@@ -107,10 +109,10 @@ def convert(fnames:Iterable, input_folder:str, offs:Mapping , corr: bool=True):
         )
         for fname in fnames
     ]
-    data = [shift(df,offs[df.columns[0]]) for df in data]
+    data = [shift(df, offs[df.columns[0]]) for df in data]
     df = pd.concat(data, axis=1)
     if corr:
-        df = df.apply(lambda x: x.subtract(min(x), fill_value = min(x)))
+        df = df.apply(lambda x: x.subtract(min(x), fill_value=min(x)))
     return df
 
 
@@ -118,17 +120,17 @@ def integrate(df, bounds):
     integrals = []
     for start, end, key in bounds:
         subset = df[(df.index >= float(start)) & (df.index < float(end))]
-        integrals.append(subset.sum().rename(f'{key} ({start} - {end} {lang.min})'))
+        integrals.append(subset.sum().rename(f"{key} ({start} - {end} {lang.min})"))
     return pd.concat(integrals, axis=1)
-  
 
 
-def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
+def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
     input_folder = window["-INP_FOLDER-"].DisplayText
     output_folder = window["-OUT_FOLDER-"].DisplayText
     bounds = window["-INTEGRALS-"].get()
     OC, UV, UV2, t = values["-OC-"], values["-UV-"], values["-UV2-"], values["-T-"]
     out = pd.DataFrame()
+    n = {"skipped": 0, "overwr": 0, "total": 0}
     for root, _, files in os.walk(input_folder):
         if values["-OUT_SUBDIR-"]:
             subfolder = os.path.relpath(root, input_folder)
@@ -147,12 +149,15 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
         )
 
         for i, num in enumerate(nums):
+            n["total"] += 1
             f_out = f"{num}{values['-FEXT-']}"
-            if (f_out in out_files) and job==lang.convo:
+            if (f_out in out_files) and job == lang.convo:
                 if values["-OUT_SKIP-"]:
                     msg = f'"{f_out}" {lang.fout_exist}'
+                    n["skipped"] += 1
                 else:
                     msg = f'{lang.overwr} "{f_out}"'
+                    n["overwr"] += 1
             else:
                 msg = f'{lang.curr_sample} "{num}"'
 
@@ -166,7 +171,7 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
             ):
                 return out
 
-            if f_out in out_files and values["-OUT_SKIP-"] and (job==lang.convo):
+            if f_out in out_files and values["-OUT_SKIP-"] and (job == lang.convo):
                 continue
             fnames = [
                 file
@@ -182,7 +187,7 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
             if fnames:
                 df = convert(fnames, root, offs, corr=values["-CORR-"])
 
-                if job==lang.convo:
+                if job == lang.convo:
                     save_data(df, output_folder, f"{num}", values)
 
                 if window["-INTEGRALS-"].get() != []:
@@ -191,13 +196,32 @@ def run(window:sg.Window, values:Mapping, offs:Mapping, job: str):
                         keys=[(num)],
                         names=[lang.sample, lang.signal],
                     )
-                    
+                    if values["-SATUR-"]:
+                        warning_text = ", ".join(
+                            [
+                                key
+                                for key, value in AU_THRESH.items()
+                                if ((key in df) and (df[key].max() > value))
+                            ]
+                        )
+                        integrals["SATURATION_WARNING"] = warning_text
+
                     out = pd.concat([out, integrals], axis=0)
-                    
+
         if not values["-INP_SUBFOLDERS-"]:
             if not nums:
                 sg.popup(f'{lang.no_file_warning} in "{root}"')
             break
+
+    summary_text = f'{lang.total}: {n["total"]}'
+    if job == lang.convo:
+        summary_text += (
+            f'\n{lang.overwritten}: {n["overwr"]}'
+            if not values["-OUT_SKIP-"]
+            else f'\n{lang.skipped}: {n["skipped"]}'
+        )
+    sg.popup_ok(summary_text, title=f"{lang.summary} {job}")
+
     return out
 
 
@@ -249,7 +273,7 @@ def sort_table(values: Iterable, col: int, reverse: bool):
     return sorted(values, key=lambda x: x[col], reverse=reverse)
 
 
-def draw_plot(window:sg.Window, values:Mapping, num:str, offs:Mapping):
+def draw_plot(window: sg.Window, values: Mapping, num: str, offs: Mapping):
     # https://github.com/PySimpleGUI/PySimpleGUI/blob/master/DemoPrograms/Demo_Matplotlib_Embedded_Toolbar.py
     # ------------------------------- PASTE YOUR MATPLOTLIB CODE HERE
     path = values["-F_TREE-"][0]
@@ -271,7 +295,7 @@ def draw_plot(window:sg.Window, values:Mapping, num:str, offs:Mapping):
         )
     ]
     if fnames:
-        df = convert(fnames, path,offs, corr=values["-CORR-"])
+        df = convert(fnames, path, offs, corr=values["-CORR-"])
 
     else:
         return
@@ -345,18 +369,27 @@ def clean_figure(window):
     # draw_figure_w_toolbar(
     #     window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
     # )
-    #window["-FIG_CLEAR-"].update(disabled=True)
+    # window["-FIG_CLEAR-"].update(disabled=True)
 
 
 def get_int_bounds_from_file(path):
-    header = ["start", "end", "name"]
-    df = pd.read_excel(path, header=0)
-    for name in header:
-        if name not in df.columns:
-            return None
-        if name != "name":
-            df[[name]] = df[[name]].applymap(lambda x: to_float(x))
+    header = pd.Index([lang.start, lang.end, lang.name])
+    df = (
+        pd.read_excel(path, header=0)
+        if not path.endswith(".csv")
+        else pd.read_csv(path)
+    )
+    df.columns = [col.capitalize() for col in df.columns]
+    if header.intersection(df.columns).size != header.size:
+        return None
+
+    for col in df.columns:
+        if col.capitalize not in header:
+            continue
+        if col.capitalize != lang.name:
+            df[[col]] = df[[col]].applymap(lambda x: to_float(x))
             df.dropna(inplace=True)
+
     return df[header].values.tolist()
 
 

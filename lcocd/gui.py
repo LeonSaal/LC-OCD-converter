@@ -12,36 +12,36 @@ import webbrowser
 import PySimpleGUI as sg
 
 from ._align import align_window
-from ._funcs import (check_input, clean_figure, draw_plot, get_dirtree,
-                     get_files, get_int_bounds_from_file, run, save_data,
-                     sort_table)
-from .cfg import SET_FILE, default_int, signals
+from ._funcs import (
+    check_input,
+    clean_figure,
+    draw_plot,
+    get_dirtree,
+    get_files,
+    get_int_bounds_from_file,
+    run,
+    save_data,
+    sort_table,
+)
+from .cfg import SET_FILE, INT_FILE, default_int, signals
 from .lang import lang
 from .layout import layout
+from .tabs.integrate import headings
 import pandas as pd
+
 
 # Default integration bounds
 
 
 def info_window() -> None:
     links = {
-        "-MAIL-": "leon.saal@uba.de",
-        "-WEB-": "github.com/LeonSaal/LC-OCD-converter",
-        "-DOI-": "Haberkamp et al.",
-    }
-    settings = {
-        "enable_events": True,
-        "text_color": "blue",
-        "font": "Arial 10 underline",
+        "-MAIL-": [lang.contact, lang.mail],
+        "-WEB-": [lang.proj, lang.project_link],
+        "-DOI-": [lang.defa_int_bounds, lang.int_bounds_link],
     }
     layout = [
-        [sg.T("Leon Saal, 2022")],
-        [
-            sg.Col(
-                [[sg.T(lang.contact)], [sg.T(lang.proj)], [sg.T(lang.defa_int_bounds)]]
-            ),
-            sg.Col([[sg.T(link, k=key, **settings)] for key, link in links.items()]),
-        ],
+        [sg.T("Leon Saal, 2023")],
+        [sg.B(vals[0], k=key, tooltip=vals[1]) for key, vals in links.items()],
     ]
     window = sg.Window(lang.info, layout=layout)
 
@@ -50,14 +50,15 @@ def info_window() -> None:
         if event == sg.WIN_CLOSED:
             break
         if event == "-MAIL-":
-            webbrowser.open("mailto:leon.saal@uba.de", new=1)
+            webbrowser.open(f"mailto:{lang.mail}", new=1)
         elif event == "-WEB-":
-            webbrowser.open("https://github.com/LeonSaal/LC-OCD-converter")
+            webbrowser.open(lang.project_link)
         elif event == "-DOI-":
-            webbrowser.open("https://doai.io/10.1016/j.watres.2007.05.029")
+            webbrowser.open(lang.int_bounds_link)
     window.close()
 
-def update_int(window: sg.Window, integrate:bool):
+
+def update_int(window: sg.Window, integrate: bool):
     integration = [
         "-INP_0-",
         "-INP_1-",
@@ -72,58 +73,98 @@ def update_int(window: sg.Window, integrate:bool):
         window[key].update(disabled=not integrate)
     pass
 
+
+def update_window(window):
+    if window["-INP_FOLDER-"].DisplayText and window["-OUT_FOLDER-"].DisplayText:
+        window["-RUN-"].update(disabled=False)
+        window["-B_INT-"].update(disabled=False)
+    else:
+        window["-RUN-"].update(disabled=True)
+        window["-B_INT-"].update(disabled=True)
+
+
 def gui() -> None:
-    window = sg.Window(lang.prog_name, layout, finalize=True,enable_close_attempted_event=True)
+    window = sg.Window(
+        lang.prog_name, layout, finalize=True, enable_close_attempted_event=True
+    )
     clicked_row = None
     reverse = False
+    SAVE_SETTINGS = True
 
     offs = {signal: 0 for signal in signals}
-    cfg=configparser.ConfigParser()
+    cfg = configparser.ConfigParser()
 
     if os.path.exists(SET_FILE):
         cfg.read(SET_FILE)
-        if 'values' in cfg:
-            for key, value in cfg['values'].items():
+        if "values" in cfg:
+            for key, value in cfg["values"].items():
                 if key.upper() in window.key_dict:
-                    if value in ['True', 'False']:
+                    if value in ["True", "False"]:
                         val = eval(value)
                     else:
                         val = str(value)
-                    print(key,val)
                     window[key.upper()].update(val)
-            #update_int(window,window['-C_INT-'].get())
-        
-            
-        if 'offset' in cfg:
+
+        if "offset" in cfg:
             for signal in signals:
-                if signal.lower() in cfg['offset']:
-                    num = cfg['offset'][signal.lower()]
+                if signal.lower() in cfg["offset"]:
+                    num = cfg["offset"][signal.lower()]
                     try:
-                        offs[signal]=float(num)
+                        offs[signal] = float(num)
                     except:
                         pass
             text = f'{", ".join([f"{sig}: {off} {lang.min}" for sig, off in offs.items() if off!=0])}'
             if text:
-                window['-XOFFS-'].update(f'{lang.offs}: '+text)
+                window["-XOFFS-"].update(f"{lang.offs}: " + text)
+        update_window(window)
+        if window["-INP_FOLDER-"].DisplayText:
+            text = window["-INP_FOLDER-"].DisplayText
+            window["-F_TREE-"].update(get_dirtree(text))
+            window["-ALIGN-"].update(disabled=False)
 
+    if os.path.exists(INT_FILE):
+        data = get_int_bounds_from_file(INT_FILE)
+        window["-INTEGRALS-"].update(data)
 
     while True:
         event, values = window.read()
 
         # Close window
         if event in [sg.WIN_CLOSE_ATTEMPTED_EVENT]:
-            if 'values' not in cfg:
-                cfg.add_section('values')
-            if 'offset' not in cfg:
-                cfg.add_section('offset')
+            if window["-INTEGRALS-"].get() != []:
+                data = pd.DataFrame(window["-INTEGRALS-"].get())
+                data.rename(
+                    {old: new for old, new in zip(data.columns, headings)},
+                    axis=1,
+                    inplace=True,
+                )
+                data.to_csv(INT_FILE, index=False)
+            else:
+                if os.path.exists(INT_FILE):
+                    os.remove(INT_FILE)
+            if not SAVE_SETTINGS:
+                break
+            if "values" not in cfg:
+                cfg.add_section("values")
+            if "offset" not in cfg:
+                cfg.add_section("offset")
             for key, val in values.items():
-                if (val is not None) and (type(val) != list) and not str(key).isnumeric():
-                    cfg['values'][key] = str(val)
+                if (
+                    (val is not None)
+                    and (type(val) != list)
+                    and not str(key).isnumeric()
+                ):
+                    cfg["values"][key] = str(val)
+            for key, val in window.key_dict.items():
+                if isinstance(val, sg.T):
+                    cfg["values"][key] = val.DisplayText
+
             for key, val in offs.items():
-                cfg['offset'][key]=str(val)
+                cfg["offset"][key] = str(val)
 
             with open(SET_FILE, "w") as configfile:
                 cfg.write(configfile)
+
             break
 
         # Menu
@@ -140,8 +181,9 @@ def gui() -> None:
             )
             if text:
                 window["-INP_FOLDER-"].update(text)
-                window['-ALIGN-'].update(disabled=False)
+                window["-ALIGN-"].update(disabled=False)
                 window["-F_TREE-"].update(get_dirtree(text))
+
                 if values["-C_OUT_FOLDER-"] == lang.same_folder:
                     window["-OUT_FOLDER-"].update(text)
 
@@ -163,34 +205,27 @@ def gui() -> None:
         if event == "-C_OUT_FOLDER-" and values["-C_OUT_FOLDER-"] == lang.same_folder:
             window["-OUT_FOLDER-"].update(window["-INP_FOLDER-"].DisplayText)
 
-        if window["-INP_FOLDER-"].DisplayText and window["-OUT_FOLDER-"].DisplayText:
-            window['-RUN-'].update(disabled=False)
-            window['-B_INT-'].update(disabled=False)
-        else:
-            window['-RUN-'].update(disabled=True)
-            window['-B_INT-'].update(disabled=True)
+        update_window(window)
 
         ## Settings
-        if event == '-ALIGN-':
-            new_offs = align_window(path=window["-INP_FOLDER-"].DisplayText, corr=values['-CORR-'], offs = offs) 
+        if event == "-ALIGN-":
+            new_offs = align_window(
+                path=window["-INP_FOLDER-"].DisplayText,
+                corr=values["-CORR-"],
+                offs=offs,
+            )
             if new_offs:
-                offs=new_offs
-            if sum([abs(val) for val in offs.values()])!=0:
+                offs = new_offs
+            if sum([abs(val) for val in offs.values()]) != 0:
                 text = f'{lang.offs}: {", ".join([f"{sig}: {off} {lang.min}" for sig, off in offs.items() if off!=0])}'
-                window['-XOFFS-'].update(text)
+                window["-XOFFS-"].update(text)
             else:
-                window['-XOFFS-'].update('')
+                window["-XOFFS-"].update("")
 
         ## Integration
         ### Enable integration
-        # if event == "-C_INT-":
-        if event == '-B_INT_CLEAR-':
+        if event == "-B_INT_CLEAR-":
             window["-INTEGRALS-"].update([])
-        #     update_int(window, values["-C_INT-"])
-        #     if window["-B_TAB_ADD-"].get_text() == lang.add:
-        #         window["-B_TAB_DEL-"].update(visible=False)
-        #     else:
-        #         window["-B_TAB_DEL-"].update(visible=True)
 
         ### Add row to integration table
         if event == "-B_TAB_ADD-":
@@ -255,7 +290,12 @@ def gui() -> None:
         ### Load bounds from file
         if event == "-B_INT_LOAD-":
             fpath = sg.popup_get_file(
-                "", no_window=True, file_types=(("Excel files", "*.xls*"),)
+                "",
+                no_window=True,
+                file_types=(
+                    ("Excel files", "*.xls*"),
+                    ("CSV files", "*.csv"),
+                ),
             )
             if fpath:
                 data = get_int_bounds_from_file(fpath)
@@ -266,36 +306,21 @@ def gui() -> None:
                     os.startfile(fpath)
 
         ### Run integration
-        if (event == '-B_INT-') and (window["-INTEGRALS-"].get() != []):
+        if (event == "-B_INT-") and (window["-INTEGRALS-"].get() != []):
             output_folder = window["-OUT_FOLDER-"].DisplayText
             out = run(window, values, offs, job=lang.int)
-            mindex = pd.MultiIndex.from_tuples([(key, f'{start} - {end}') for start, end, key in window["-INTEGRALS-"].get()])
-            out.columns = mindex
+            # mindex = pd.MultiIndex.from_tuples([(key, f'{start} - {end}') for start, end, key in window["-INTEGRALS-"].get()])
+            # out.columns = mindex
             if not out.empty:
-                fname = window['-INT_FNAME-'].get()
+                fname = window["-INT_FNAME-"].get()
                 save_data(out, output_folder, fname, values)
 
         ## Run conversion
         if event == "-RUN-":
             output_folder = window["-OUT_FOLDER-"].DisplayText
             out = run(window, values, offs, job=lang.convo)
-            # if (window["-INTEGRALS-"].get() != []) and not out.empty:
-            #     fname = "Integrals"
-            #     save_data(out, output_folder, fname, values)
 
         # Preview
-        ## Select preview folder
-        # if event == "-B_PREV_FOLDER-":
-        #     text = sg.popup_get_folder(
-        #         lang.enter_fname,
-        #         no_window=True,
-        #         initial_folder=window["-PREV_FOLDER-"].DisplayText,
-        #     )
-        #     if text:
-        #         window["-PREV_FOLDER-"].update(text)
-        #         window["-F_TREE-"].update(get_dirtree(text))
-        #         window["-T_FILES-"].update([])
-
         ## Select file from file table and add it to figure
         if event[0] == "-T_FILES-":
             selected_file = event[2][0]
@@ -328,3 +353,11 @@ def gui() -> None:
         ## Clear figure
         if event == "-FIG_CLEAR-":
             clean_figure(window)
+
+        # Settings
+
+        if event == "-RESET_SETTINGS-":
+            if os.path.exists(SET_FILE):
+                os.remove(SET_FILE)
+            SAVE_SETTINGS = False
+            sg.popup(lang.tip_reset)

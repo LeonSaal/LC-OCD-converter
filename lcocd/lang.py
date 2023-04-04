@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class EN:
     sel_conv = "Input folder"
     sel_folder = "Select folder"
+    sel_file = "Select file"
     incl_sub = "Include subdirectories"
     sel_dest = "Output folder"
     skip = "Skip if destination file already exists"
@@ -12,8 +13,8 @@ class EN:
     diff_folder = "different folder"
     keep_sub = "Keep folder structure"
     settings = "Settings"
-    incl_signal = "Include:"
-    corr = "Corrections:"
+    incl_signal = "Include"
+    corr = "Corrections / Warnings"
     lin_corr = "Linear baseline-correction"
     int = "Integrate"
     add = "Add"
@@ -21,7 +22,7 @@ class EN:
     mod = "Modify"
     convert = "Convert"
     exit = "Exit"
-    fname = 'File name'
+    fname = "File name"
     enter_fname = f"Please enter a {fname.lower()}"
     start = "Start"
     name = "Name"
@@ -45,6 +46,9 @@ class EN:
     tip_ftable = "Click row to add to graph below. Click table header to sort table"
     tip_itable = "Click on row to modify/delete, below to add rows"
     tip_ftree = "Click on element to list files"
+    tip_align = "Click row to select for alignment."
+    tip_ali_offs = "Adjust time offset between signals. Use cursor for better results."
+    tip_reset = "Program restart necessary."
     folder_browser = "Browse folder"
     fig = "Figure"
     default_int = "Load default"
@@ -61,16 +65,24 @@ class EN:
     no_file_warning = "No files found in "
     min = "minutes"
     time = "time"
-    defa_int_bounds = "Default integration bounds based on:"
-    proj = "Visit Project online:"
-    contact = "Contact:"
-    fmt = 'Output format:'
-    align='Align'
-    reset = 'Reset'
-    curs='Cursor'
-    offs = 'Offset'
-    browse_files = 'Browse files'
-    sat = 'saturation'
-    
+    defa_int_bounds = "See default integration bounds"
+    proj = "Visit Project online"
+    contact = "Contact"
+    fmt = "Output format"
+    align = "Align"
+    reset = "Reset"
+    curs = "Cursor"
+    offs = "Offset"
+    browse_files = "Browse files"
+    sat = "Saturation warning"
+    mail = "leon.saal@uba.de"
+    project_link = "https://github.com/LeonSaal/LC-OCD-converter"
+    int_bounds_link = "https://doi.org/10.1016/j.watres.2007.05.029"
+    summary = "Summary"
+    skipped = "Skipped files"
+    overwritten = "Overwritten files"
+    total = "Total files"
+    oc_warning = "OC saturation"
+
 
 lang = EN

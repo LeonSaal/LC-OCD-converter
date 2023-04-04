@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 from ..lang import lang
 width = 50
+headings = [lang.start, lang.end, lang.name]
 
 # Integration frame
 int_frame = [
@@ -18,7 +19,7 @@ int_frame = [
     [
         sg.Table(
             [],
-            headings=[lang.start, lang.end, lang.name],
+            headings=headings,
             key="-INTEGRALS-",
             num_rows=6,
             justification="left",
