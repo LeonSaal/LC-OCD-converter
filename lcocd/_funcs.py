@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import PySimpleGUI as sg
 from matplotlib import rcParams
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+#from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.lines import Line2D
 
 from .lang import lang
@@ -36,23 +36,23 @@ in_graph = set()
 # ------------------------------- This is to include a matplotlib figure in a Tkinter canvas
 
 
-def draw_figure_w_toolbar(canvas, fig, canvas_toolbar):
-    if canvas.children:
-        for child in canvas.winfo_children():
-            child.destroy()
-    if canvas_toolbar.children:
-        for child in canvas_toolbar.winfo_children():
-            child.destroy()
-    figure_canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
-    figure_canvas_agg.draw()
-    toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
-    toolbar.update()
-    figure_canvas_agg.get_tk_widget().pack(side="right", fill="both", expand=1)
+# def draw_figure_w_toolbar(canvas, fig, canvas_toolbar):
+#     if canvas.children:
+#         for child in canvas.winfo_children():
+#             child.destroy()
+#     if canvas_toolbar.children:
+#         for child in canvas_toolbar.winfo_children():
+#             child.destroy()
+#     figure_canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
+#     figure_canvas_agg.draw()
+#     toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
+#     toolbar.update()
+#     figure_canvas_agg.get_tk_widget().pack(side="right", fill="both", expand=1)
 
 
-class Toolbar(NavigationToolbar2Tk):
-    def __init__(self, *args, **kwargs):
-        super(Toolbar, self).__init__(*args, **kwargs)
+# class Toolbar(NavigationToolbar2Tk):
+#     def __init__(self, *args, **kwargs):
+#         super(Toolbar, self).__init__(*args, **kwargs)
 
 
 def check_input(a, b):
@@ -128,7 +128,7 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
     input_folder = window["-INP_FOLDER-"].DisplayText
     output_folder = window["-OUT_FOLDER-"].DisplayText
     bounds = window["-INTEGRALS-"].get()
-    OC, UV, UV2, t = values["-OC-"], values["-UV-"], values["-UV2-"], values["-T-"]
+    selected = values["-OC-"], values["-UV-"], values["-UV2-"], values["-T-"]
     out = pd.DataFrame()
     n = {"skipped": 0, "overwr": 0, "total": 0}
     for root, _, files in os.walk(input_folder):
@@ -140,14 +140,13 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
         else:
             out_path = output_folder
         out_files = os.listdir(output_folder)
-        nums = set(
+        nums = sorted(list(set(
             [
-                int(file[-9:-4])
+                file[-9:-4]
                 for file in files
                 if re.fullmatch(".{2,3}\d{5}\.dat", file)
             ]
-        )
-
+        )), reverse=True)
         for i, num in enumerate(nums):
             n["total"] += 1
             f_out = f"{num}{values['-FEXT-']}"
@@ -173,17 +172,10 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
 
             if f_out in out_files and values["-OUT_SKIP-"] and (job == lang.convo):
                 continue
-            fnames = [
-                file
-                for file in files
-                if file.endswith(f"{num}.dat")
-                and (
-                    ((re.match("oc", file, flags=re.I) is not None) & OC)
-                    or ((re.match("uv_", file, flags=re.I) is not None) & UV)
-                    or ((re.match("uv2", file, flags=re.I) is not None) & UV2)
-                    or ((re.match("t_", file, flags=re.I) is not None) & t)
-                )
-            ]
+            
+            prefixes = ['OC_', 'uv_', 'uv2', 't_']
+            fnames = [f'{prefix}{num}.dat' for prefix, select in zip(prefixes, selected) if select and f'{prefix}{num}.dat' in files]
+
             if fnames:
                 df = convert(fnames, root, offs, corr=values["-CORR-"])
 
@@ -237,15 +229,21 @@ def get_dirtree(grandparent):
             treedata.insert(parent, child.as_posix(), name, [])
     return treedata
 
+def get_nums(path):
+    files = os.listdir(path)
+    return files, sorted(list(
+        set([file[-9:-4] for file in files if re.fullmatch(".{2,3}\d{5}\.dat", file)])
+    ), reverse=True)
 
-def get_files(path):
+def get_files(path, chunk=0, n_files= 100):
     prefix = ["OC_", "UV_", "UV2", "T_"]
     if not path:
         return []
-    files = os.listdir(path)
-    nums = list(
-        set([file[-9:-4] for file in files if re.fullmatch(".{2,3}\d{5}\.dat", file)])
-    )
+    files, nums = get_nums(path)
+
+    if len(nums) > n_files:
+        nums = nums[chunk*n_files:(chunk+1)*n_files]
+
     signals = {
         num: {
             "files": [file[:-9].upper() for file in files if num in file],
@@ -277,23 +275,16 @@ def draw_plot(window: sg.Window, values: Mapping, num: str, offs: Mapping):
     # https://github.com/PySimpleGUI/PySimpleGUI/blob/master/DemoPrograms/Demo_Matplotlib_Embedded_Toolbar.py
     # ------------------------------- PASTE YOUR MATPLOTLIB CODE HERE
     path = values["-F_TREE-"][0]
-    OC, UV, UV2, t = (
+    selected = (
         values["-OC_P-"],
         values["-UV_P-"],
         values["-UV2_P-"],
         values["-T_P-"],
     )
-    fnames = [
-        file
-        for file in os.listdir(path)
-        if file.endswith(f"{num}.dat")
-        and (
-            ((re.match("oc", file, flags=re.I) is not None) & OC)
-            or ((re.match("uv_", file, flags=re.I) is not None) & UV)
-            or ((re.match("uv2", file, flags=re.I) is not None) & UV2)
-            or ((re.match("t_", file, flags=re.I) is not None) & t)
-        )
-    ]
+    prefixes = ['OC_', 'uv_', 'uv2', 't_']
+    files = os.listdir(path)
+    fnames = [f'{prefix}{num}.dat' for prefix, select in zip(prefixes, selected) if select and f'{prefix}{num}.dat' in files]
+
     if fnames:
         df = convert(fnames, path, offs, corr=values["-CORR-"])
 
@@ -358,18 +349,14 @@ def draw_plot(window: sg.Window, values: Mapping, num: str, offs: Mapping):
     # )
 
 
-def clean_figure(window):
+def clean_figure(num=1):
     global legend_elements, colors, in_graph
     in_graph = set()
     colors = cycle([color["color"] for color in rcParams["axes.prop_cycle"]])
     legend_elements = {"handles": [], "labels": []}
     with plt.ion():
-        fig = plt.gcf()
+        fig = plt.figure(num)
         fig.clear(keep_observers=True)
-    # draw_figure_w_toolbar(
-    #     window["-FIGURE-"].TKCanvas, fig, window["-CONTROLS-"].TKCanvas
-    # )
-    # window["-FIG_CLEAR-"].update(disabled=True)
 
 
 def get_int_bounds_from_file(path):

@@ -22,6 +22,7 @@ from ._funcs import (
     run,
     save_data,
     sort_table,
+    get_nums
 )
 from .cfg import SET_FILE, INT_FILE, default_int, signals
 from .lang import lang
@@ -90,6 +91,8 @@ def gui() -> None:
     clicked_row = None
     reverse = False
     SAVE_SETTINGS = True
+    PAGES = 1
+    MAX_DIR =100
 
     offs = {signal: 0 for signal in signals}
     cfg = configparser.ConfigParser()
@@ -118,9 +121,15 @@ def gui() -> None:
                 window["-XOFFS-"].update(f"{lang.offs}: " + text)
         update_window(window)
         if window["-INP_FOLDER-"].DisplayText:
+            MAX_DIR = window['-MAX_DIR-'].get()
             text = window["-INP_FOLDER-"].DisplayText
+            _, nums = get_nums(text)
+            PAGES = int(len(nums) / MAX_DIR) +1
             window["-F_TREE-"].update(get_dirtree(text))
+            window['-PAGE-'].update(range=(1, PAGES))
             window["-ALIGN-"].update(disabled=False)
+            data = get_files(text, 0, MAX_DIR)
+            window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
 
     if os.path.exists(INT_FILE):
         data = get_int_bounds_from_file(INT_FILE)
@@ -182,6 +191,9 @@ def gui() -> None:
             if text:
                 window["-INP_FOLDER-"].update(text)
                 window["-ALIGN-"].update(disabled=False)
+                _, nums = get_nums(text)
+
+                PAGES = int(len(nums) / MAX_DIR) +1
                 window["-F_TREE-"].update(get_dirtree(text))
 
                 if values["-C_OUT_FOLDER-"] == lang.same_folder:
@@ -221,6 +233,19 @@ def gui() -> None:
                 window["-XOFFS-"].update(text)
             else:
                 window["-XOFFS-"].update("")
+        
+        if event =='-MAX_DIR-':
+            MAX_DIR = values['-MAX_DIR-']
+            if window['-INP_FOLDER-'].DisplayText:
+                path = window['-INP_FOLDER-'].DisplayText
+                _, nums = get_nums(path)
+                
+                PAGES = int(len(nums) / MAX_DIR) +1
+                window['-PAGE-'].update(range=(1,PAGES), value=1)
+                PAGE = int(values['-PAGE-'])
+                data = get_files(path, PAGE-1, MAX_DIR)
+                window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
+                window['-PAGE_RANGE-'].update(f'{PAGE} / {PAGES}')
 
         ## Integration
         ### Enable integration
@@ -346,13 +371,22 @@ def gui() -> None:
                 reverse = ~reverse
 
         ## Select file from file tree
-        if event == "-F_TREE-" and values["-F_TREE-"]:
-            data = get_files(values["-F_TREE-"][0])
+        if ((event == "-F_TREE-" and values["-F_TREE-"]) or ((event == '-PAGE-') and values["-F_TREE-"])):
+            path = values["-F_TREE-"][0]
+            _, nums = get_nums(path)
+            TOTAL = len(nums)
+            PAGES = int(TOTAL / MAX_DIR) +1
+            PAGE = int(values['-PAGE-'])
+            window['-PAGE-'].update(range=(1, PAGES))
+            data = get_files(path, PAGE-1, MAX_DIR)
             window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
+            window['-PAGE_RANGE-'].update(f'{PAGE} / {PAGES}')
+
 
         ## Clear figure
         if event == "-FIG_CLEAR-":
-            clean_figure(window)
+            clean_figure(1)
+
 
         # Settings
 

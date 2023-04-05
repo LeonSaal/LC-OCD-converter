@@ -83,6 +83,8 @@ class EN:
     overwritten = "Overwritten files"
     total = "Total files"
     oc_warning = "OC saturation"
+    page = 'Page'
+    files_per_page = 'Files per page'
 
 
 lang = EN
