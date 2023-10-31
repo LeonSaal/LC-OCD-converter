@@ -1,6 +1,6 @@
 # LC-OCD-converter
 Tool for summarizing and previewing data from LC-OCD-UV by <http://www.doc-labor.de>.
-Raw data with filenames `<prefix>000000.dat` are summarized to `000000.xlsx` with `<prefix>` as columns.
+Raw data with filenames `<prefix>000000.dat` are summarized to a single file with `<prefix>` as columns.
 
 Optionally, the signals can be baseline-corrected (linear) and integrated between custon bounds.
 
