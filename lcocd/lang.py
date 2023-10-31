@@ -85,6 +85,9 @@ class EN:
     oc_warning = "OC saturation"
     page = 'Page'
     files_per_page = 'Files per page'
+    file_selection = 'Select file range'
+    from_ = 'from: '
+    to = 'to: '
 
 
 lang = EN

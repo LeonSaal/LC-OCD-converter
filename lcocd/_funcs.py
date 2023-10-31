@@ -128,6 +128,7 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
     input_folder = window["-INP_FOLDER-"].DisplayText
     output_folder = window["-OUT_FOLDER-"].DisplayText
     bounds = window["-INTEGRALS-"].get()
+    num_0, num_1 = values["-FILE_SEL_COMBO_0-"], values["-FILE_SEL_COMBO_1-"]
     selected = values["-OC-"], values["-UV-"], values["-UV2-"], values["-T-"]
     out = pd.DataFrame()
     n = {"skipped": 0, "overwr": 0, "total": 0}
@@ -147,6 +148,9 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
                 if re.fullmatch(".{2,3}\d{5}\.dat", file)
             ]
         )), reverse=True)
+
+        nums = [num for num in nums if (num_0 <= num <= num_1)]
+
         for i, num in enumerate(nums):
             n["total"] += 1
             f_out = f"{num}{values['-FEXT-']}"
@@ -235,11 +239,12 @@ def get_nums(path):
         set([file[-9:-4] for file in files if re.fullmatch(".{2,3}\d{5}\.dat", file)])
     ), reverse=True)
 
-def get_files(path, chunk=0, n_files= 100):
+def get_files(path, num_0, num_1, chunk=0, n_files= 100):
     prefix = ["OC_", "UV_", "UV2", "T_"]
     if not path:
         return []
     files, nums = get_nums(path)
+    nums = [num for num in nums if (num_0 <= num <= num_1)]
 
     if len(nums) > n_files:
         nums = nums[chunk*n_files:(chunk+1)*n_files]
@@ -386,3 +391,22 @@ def to_float(x):
         return pd.NA
     else:
         return out
+
+
+def update_ftree(window: sg.Window, values: list, path: str, reverse: bool):
+    num_0, num_1 = values["-FILE_SEL_COMBO_0-"], values["-FILE_SEL_COMBO_1-"]
+    _, nums = get_nums(path)
+    nums = [num for num in nums if (num_0 <= num <= num_1)]
+
+    MAX_DIR = values['-MAX_DIR-']
+    TOTAL = len(nums)
+    PAGES = int(TOTAL / MAX_DIR) +1
+    PAGE = min(PAGES, int(values['-PAGE-']))
+    window['-PAGE-'].update(range=(1, PAGES))
+    data = get_files(path,
+                    values["-FILE_SEL_COMBO_0-"], 
+                    values["-FILE_SEL_COMBO_1-"],  
+                    chunk=PAGE-1, 
+                    n_files=MAX_DIR)
+    window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
+    window['-PAGE_RANGE-'].update(f'{PAGE} / {PAGES}')

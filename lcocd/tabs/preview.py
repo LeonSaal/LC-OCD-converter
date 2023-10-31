@@ -18,6 +18,7 @@ folder_frame = [
                         expand_x=True,
                         num_rows=7,
                         tooltip=lang.tip_ftree,
+                        select_mode="browse"
                     )
                 ],
                 [sg.VPush()],
@@ -35,6 +36,7 @@ folder_frame = [
                         enable_click_events=True,
                         tooltip=lang.tip_ftable,
                         num_rows=7,
+                        # right_click_menu=['',[lang.convert, lang.int]]
                     )
                 ],
                 [sg.T(lang.page),sg.Slider(size=(0, 10),orientation="h", expand_x=True, k="-PAGE-", enable_events=True, disable_number_display=True), sg.T('', size=(7,1),k='-PAGE_RANGE-', justification='right')],

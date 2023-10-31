@@ -22,7 +22,8 @@ from ._funcs import (
     run,
     save_data,
     sort_table,
-    get_nums
+    get_nums,
+    update_ftree
 )
 from .cfg import SET_FILE, INT_FILE, default_int, signals
 from .lang import lang
@@ -106,6 +107,8 @@ def gui() -> None:
                         val = eval(value)
                     else:
                         val = str(value)
+                    if (key.upper() in ["-INP_FOLDER-", "-OUT_FOLDER-"]) and (not os.path.exists(val)):
+                        continue
                     window[key.upper()].update(val)
 
         if "offset" in cfg:
@@ -120,16 +123,24 @@ def gui() -> None:
             if text:
                 window["-XOFFS-"].update(f"{lang.offs}: " + text)
         update_window(window)
+
         if window["-INP_FOLDER-"].DisplayText:
             MAX_DIR = window['-MAX_DIR-'].get()
             text = window["-INP_FOLDER-"].DisplayText
             _, nums = get_nums(text)
+            window["-FILE_SEL_COMBO_0-"].update(values=sorted(nums), value=min(nums))
+            window["-FILE_SEL_COMBO_1-"].update(values=sorted(nums, reverse=True), value=max(nums))
+
             PAGES = int(len(nums) / MAX_DIR) +1
             window["-F_TREE-"].update(get_dirtree(text))
             window['-PAGE-'].update(range=(1, PAGES))
             window["-ALIGN-"].update(disabled=False)
-            data = get_files(text, 0, MAX_DIR)
-            window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
+            # data = get_files(text,
+            #                  window["-FILE_SEL_COMBO_0-"].get(), 
+            #                  window["-FILE_SEL_COMBO_1-"].get(), 
+            #                  chunk=0, 
+            #                  n_files=MAX_DIR)
+            # window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
 
     if os.path.exists(INT_FILE):
         data = get_int_bounds_from_file(INT_FILE)
@@ -192,8 +203,11 @@ def gui() -> None:
                 window["-INP_FOLDER-"].update(text)
                 window["-ALIGN-"].update(disabled=False)
                 _, nums = get_nums(text)
+                window["-FILE_SEL_COMBO_0-"].update(values=sorted(nums), value=min(nums))
+                window["-FILE_SEL_COMBO_1-"].update(values=sorted(nums, reverse=True), value=min(nums))
 
-                PAGES = int(len(nums) / MAX_DIR) +1
+                num_range = int(window["-FILE_SEL_COMBO_1-"].get())-int(window["-FILE_SEL_COMBO_0-"].get())
+                PAGES = int(num_range / MAX_DIR) +1
                 window["-F_TREE-"].update(get_dirtree(text))
 
                 if values["-C_OUT_FOLDER-"] == lang.same_folder:
@@ -217,13 +231,24 @@ def gui() -> None:
         if event == "-C_OUT_FOLDER-" and values["-C_OUT_FOLDER-"] == lang.same_folder:
             window["-OUT_FOLDER-"].update(window["-INP_FOLDER-"].DisplayText)
 
+        ## file selection
+        if event == "-FILE_SEL_COMBO_0-":
+            nums_avail = [val for val in sorted(nums, reverse=True) if val > values["-FILE_SEL_COMBO_0-"]]
+            window["-FILE_SEL_COMBO_1-"].update(values=nums_avail, value = max(nums_avail)) 
+            path = window["-INP_FOLDER-"].DisplayText
+            update_ftree(window=window, values=values, path=path, reverse=reverse)
+ 
+        if event == "-FILE_SEL_COMBO_1-":
+            path = window["-INP_FOLDER-"].DisplayText
+            update_ftree(window=window, values=values, path=path, reverse=reverse)
+
         update_window(window)
 
         ## Settings
         if event == "-ALIGN-":
             new_offs = align_window(
-                path=window["-INP_FOLDER-"].DisplayText,
-                corr=values["-CORR-"],
+                window, 
+                values,
                 offs=offs,
             )
             if new_offs:
@@ -238,14 +263,8 @@ def gui() -> None:
             MAX_DIR = values['-MAX_DIR-']
             if window['-INP_FOLDER-'].DisplayText:
                 path = window['-INP_FOLDER-'].DisplayText
-                _, nums = get_nums(path)
+                update_ftree(window=window, values=values, path=path, reverse=reverse)
                 
-                PAGES = int(len(nums) / MAX_DIR) +1
-                window['-PAGE-'].update(range=(1,PAGES), value=1)
-                PAGE = int(values['-PAGE-'])
-                data = get_files(path, PAGE-1, MAX_DIR)
-                window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
-                window['-PAGE_RANGE-'].update(f'{PAGE} / {PAGES}')
 
         ## Integration
         ### Enable integration
@@ -373,14 +392,7 @@ def gui() -> None:
         ## Select file from file tree
         if ((event == "-F_TREE-" and values["-F_TREE-"]) or ((event == '-PAGE-') and values["-F_TREE-"])):
             path = values["-F_TREE-"][0]
-            _, nums = get_nums(path)
-            TOTAL = len(nums)
-            PAGES = int(TOTAL / MAX_DIR) +1
-            PAGE = int(values['-PAGE-'])
-            window['-PAGE-'].update(range=(1, PAGES))
-            data = get_files(path, PAGE-1, MAX_DIR)
-            window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
-            window['-PAGE_RANGE-'].update(f'{PAGE} / {PAGES}')
+            update_ftree(window=window, values=values, path=path, reverse=reverse)
 
 
         ## Clear figure

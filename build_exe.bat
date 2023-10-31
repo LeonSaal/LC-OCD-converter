@@ -1,0 +1,1 @@
+pyinstaller --clean -F -n LCOCD_converter -w run.py 

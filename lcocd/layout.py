@@ -32,6 +32,15 @@ out_frame = [
     ],
 ]
 
+# file selection frame
+file_frame = [
+    [
+        sg.Text(lang.from_),
+        sg.Combo([], k="-FILE_SEL_COMBO_0-", size=6, enable_events=True, readonly=True), 
+        sg.Text(lang.to),
+        sg.Combo([], k="-FILE_SEL_COMBO_1-", size=6, enable_events=True, readonly=True)
+    ]
+]
 
 ## Complete layout
 layout = [
@@ -42,6 +51,10 @@ layout = [
         ],
         [sg.VPush()],
     ],
+    [
+        sg.Frame(lang.file_selection, file_frame, expand_x=True, expand_y=True)
+    ],
+    [sg.VPush()],
     [
         sg.TabGroup(
             [

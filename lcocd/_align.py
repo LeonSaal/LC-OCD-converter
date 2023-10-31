@@ -48,10 +48,14 @@ def draw_align_plot(
         plt.show(block=False)
 
 
-def align_window(path: str, corr: bool, offs: Mapping):
+def align_window(window: sg.Window, values: list, offs: Mapping):
+    path=window["-INP_FOLDER-"].DisplayText
+    corr=values["-CORR-"]
+    num_0, num_1 = values["-FILE_SEL_COMBO_0-"], values["-FILE_SEL_COMBO_1-"]
+
     from ._funcs import get_files, sort_table
 
-    values = get_files(path)
+    values = get_files(path, num_0, num_1)
     slider = [
         [
             # sg.T(f"{signal}:"),
