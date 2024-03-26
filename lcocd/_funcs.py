@@ -5,6 +5,7 @@ Created on Mon May  2 14:07:41 2022
 @author: Leon
 """
 import os
+import posixpath
 import re
 import time
 from itertools import cycle
@@ -74,7 +75,7 @@ def save_data(out: pd.DataFrame, output_folder: str, fname: str, values: dict):
     save = False
     ext = values["-FEXT-"]
     while not save:
-        path = os.path.join(output_folder, f"{fname}{ext}")
+        path = posixpath.join(output_folder, f"{fname}{ext}")
         try:
             out.to_excel(path, merge_cells=False) if ext != ".csv" else out.to_csv(path)
             save = True
@@ -94,13 +95,13 @@ def shift(df: pd.DataFrame, toff: float):
     return df.shift(int(sign * ioff), fill_value=min(df.values)[0])
 
 def get_ana_name(fname: str, input_folder: str):
-    with open(os.path.join(input_folder, fname)) as f:
+    with open(posixpath.join(input_folder, fname)) as f:
         return f.readline().strip()
 
 def convert(fnames: Iterable, input_folder: str, offs: Mapping, corr: bool = True):
     data = [
         pd.read_csv(
-            os.path.join(input_folder, fname),
+            posixpath.join(input_folder, fname),
             sep="\s+",
             decimal=".",
             thousands=",",
@@ -142,9 +143,9 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
     # loop over input directory (optional: subdirectories)
     for root, _, files in os.walk(input_folder):
         if values["-OUT_SUBDIR-"]:
-            subfolder = os.path.relpath(root, input_folder)
-            out_path = os.path.join(output_folder, subfolder)
-            if not os.path.exists(out_path):
+            subfolder = posixpath.relpath(root, input_folder)
+            out_path = posixpath.join(output_folder, subfolder)
+            if not posixpath.exists(out_path):
                 os.mkdir(out_path)
         else:
             out_path = output_folder
@@ -269,7 +270,7 @@ def get_files(path, num_0, num_1, chunk=0, n_files= 100):
             "files": [file[:-9].upper() for file in files if num in file],
             "time": min(
                 [
-                    os.path.getctime(os.path.join(path, file))
+                    posixpath.getctime(posixpath.join(path, file))
                     for file in files
                     if num in file
                 ]

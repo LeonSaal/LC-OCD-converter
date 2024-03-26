@@ -89,6 +89,7 @@ class EN:
     from_ = 'from: '
     to = 'to: '
     num = "#"
+    cont="Continue"
 
 
 lang = EN

@@ -7,7 +7,9 @@ Created on Mon May  2 10:16:15 2022
 import configparser
 import copy
 import os
+from typing import Mapping
 import webbrowser
+import posixpath
 
 import PySimpleGUI as sg
 
@@ -84,21 +86,10 @@ def update_window(window):
         window["-RUN-"].update(disabled=True)
         window["-B_INT-"].update(disabled=True)
 
-
-def gui() -> None:
-    window = sg.Window(
-        lang.prog_name, layout, finalize=True, enable_close_attempted_event=True
-    )
-    clicked_row = None
-    reverse = False
-    SAVE_SETTINGS = True
+# load settings from .ini and integration bounds and set UI accordingly
+def load_settings(window: sg.Window, offs: Mapping, cfg: configparser.ConfigParser):
     PAGES = 1
-    MAX_DIR =100
-
-    offs = {signal: 0 for signal in SIGNALS}
-    cfg = configparser.ConfigParser()
-
-    if os.path.exists(SET_FILE):
+    if posixpath.exists(SET_FILE):
         cfg.read(SET_FILE)
         if "values" in cfg:
             for key, value in cfg["values"].items():
@@ -107,7 +98,7 @@ def gui() -> None:
                         val = eval(value)
                     else:
                         val = str(value)
-                    if (key.upper() in ["-INP_FOLDER-", "-OUT_FOLDER-"]) and (not os.path.exists(val)):
+                    if (key.upper() in ["-INP_FOLDER-", "-OUT_FOLDER-"]) and (not posixpath.exists(val)):
                         continue
                     window[key.upper()].update(val)
 
@@ -142,49 +133,65 @@ def gui() -> None:
             #                  n_files=MAX_DIR)
             # window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
 
-    if os.path.exists(INT_FILE):
+    if posixpath.exists(INT_FILE):
         data = get_int_bounds_from_file(INT_FILE)
         window["-INTEGRALS-"].update(data)
+
+# save settings from UI state
+def save_settings(window:sg.Window, values:Mapping, offs: Mapping, cfg=configparser.ConfigParser):
+    if window["-INTEGRALS-"].get() != []:
+        data = pd.DataFrame(window["-INTEGRALS-"].get())
+        data.rename(
+            {old: new for old, new in zip(data.columns, headings)},
+            axis=1,
+            inplace=True,
+        )
+        data.to_csv(INT_FILE, index=False)
+    else:
+        if posixpath.exists(INT_FILE):
+            os.remove(INT_FILE)
+
+    if "values" not in cfg:
+        cfg.add_section("values")
+    if "offset" not in cfg:
+        cfg.add_section("offset")
+    for key, val in values.items():
+        if (
+            (val is not None)
+            and (type(val) != list)
+            and not str(key).isnumeric()
+        ):
+            cfg["values"][key] = str(val)
+    for key, val in window.key_dict.items():
+        if isinstance(val, sg.T):
+            cfg["values"][key] = val.DisplayText
+
+    for key, val in offs.items():
+        cfg["offset"][key] = str(val)
+
+    with open(SET_FILE, "w") as configfile:
+        cfg.write(configfile)
+
+def gui() -> None:
+    window = sg.Window(
+        lang.prog_name, layout, finalize=True, enable_close_attempted_event=True
+    )
+    clicked_row = None
+    reverse = False
+    SAVE_SETTINGS = True
+    MAX_DIR =100
+    offs = {signal: 0 for signal in SIGNALS}
+    cfg = configparser.ConfigParser()
+
+    load_settings(window=window, offs=offs, cfg=cfg)
 
     while True:
         event, values = window.read()
 
         # Close window
         if event in [sg.WIN_CLOSE_ATTEMPTED_EVENT]:
-            if window["-INTEGRALS-"].get() != []:
-                data = pd.DataFrame(window["-INTEGRALS-"].get())
-                data.rename(
-                    {old: new for old, new in zip(data.columns, headings)},
-                    axis=1,
-                    inplace=True,
-                )
-                data.to_csv(INT_FILE, index=False)
-            else:
-                if os.path.exists(INT_FILE):
-                    os.remove(INT_FILE)
-            if not SAVE_SETTINGS:
-                break
-            if "values" not in cfg:
-                cfg.add_section("values")
-            if "offset" not in cfg:
-                cfg.add_section("offset")
-            for key, val in values.items():
-                if (
-                    (val is not None)
-                    and (type(val) != list)
-                    and not str(key).isnumeric()
-                ):
-                    cfg["values"][key] = str(val)
-            for key, val in window.key_dict.items():
-                if isinstance(val, sg.T):
-                    cfg["values"][key] = val.DisplayText
-
-            for key, val in offs.items():
-                cfg["offset"][key] = str(val)
-
-            with open(SET_FILE, "w") as configfile:
-                cfg.write(configfile)
-
+            if SAVE_SETTINGS:
+                save_settings(window=window, values=values, offs=offs, cfg=cfg)
             break
 
         # Menu
@@ -352,13 +359,18 @@ def gui() -> None:
         ### Run integration
         if (event == "-B_INT-") and (window["-INTEGRALS-"].get() != []):
             output_folder = window["-OUT_FOLDER-"].DisplayText
+            fname = window["-INT_FNAME-"].get()
+            out_path = posixpath.join(output_folder, f'{fname}{values["-FEXT-"]}')
+            if posixpath.exists(out_path):
+                if sg.popup_ok_cancel(f"{out_path!r} {lang.fout_exist} {lang.cont}?", title=f'{fname}{values["-FEXT-"]} {lang.fout_exist}')!="OK": 
+                    continue
+
             out = run(window, values, offs, job=lang.int)
             # mindex = pd.MultiIndex.from_tuples([(key, f'{start} - {end}') for start, end, key in window["-INTEGRALS-"].get()])
             # out.columns = mindex
-            if not out.empty:
-                fname = window["-INT_FNAME-"].get()
+            if not out.empty: 
                 save_data(out, output_folder, fname, values)
-
+                
         ## Run conversion
         if event == "-RUN-":
             output_folder = window["-OUT_FOLDER-"].DisplayText
@@ -403,7 +415,7 @@ def gui() -> None:
         # Settings
 
         if event == "-RESET_SETTINGS-":
-            if os.path.exists(SET_FILE):
+            if posixpath.exists(SET_FILE):
                 os.remove(SET_FILE)
             SAVE_SETTINGS = False
             sg.popup(lang.tip_reset)
