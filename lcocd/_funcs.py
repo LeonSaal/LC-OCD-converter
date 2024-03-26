@@ -21,7 +21,7 @@ from matplotlib import rcParams
 from matplotlib.lines import Line2D
 
 from .lang import lang
-from .cfg import AU_THRESH
+from .cfg import AU_THRESH, FILE_PREFIXES
 
 colors = cycle([color["color"] for color in rcParams["axes.prop_cycle"]])
 legend_elements = {"handles": [], "labels": []}
@@ -93,6 +93,9 @@ def shift(df: pd.DataFrame, toff: float):
     sign = np.sign(toff)
     return df.shift(int(sign * ioff), fill_value=min(df.values)[0])
 
+def get_ana_name(fname: str, input_folder: str):
+    with open(os.path.join(input_folder, fname)) as f:
+        return f.readline().strip()
 
 def convert(fnames: Iterable, input_folder: str, offs: Mapping, corr: bool = True):
     data = [
@@ -125,13 +128,18 @@ def integrate(df, bounds):
 
 
 def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
+    # get parameters from UI
     input_folder = window["-INP_FOLDER-"].DisplayText
     output_folder = window["-OUT_FOLDER-"].DisplayText
     bounds = window["-INTEGRALS-"].get()
     num_0, num_1 = values["-FILE_SEL_COMBO_0-"], values["-FILE_SEL_COMBO_1-"]
     selected = values["-OC-"], values["-UV-"], values["-UV2-"], values["-T-"]
+
+    #setup output
     out = pd.DataFrame()
     n = {"skipped": 0, "overwr": 0, "total": 0}
+
+    # loop over input directory (optional: subdirectories)
     for root, _, files in os.walk(input_folder):
         if values["-OUT_SUBDIR-"]:
             subfolder = os.path.relpath(root, input_folder)
@@ -140,6 +148,8 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
                 os.mkdir(out_path)
         else:
             out_path = output_folder
+        
+        # list files in outputfolder to check for skippable files
         out_files = os.listdir(output_folder)
         nums = sorted(list(set(
             [
@@ -149,21 +159,29 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
             ]
         )), reverse=True)
 
+        # iterate over analysis numbers in input directory
         nums = [num for num in nums if (num_0 <= num <= num_1)]
-
         for i, num in enumerate(nums):
+            skip = False
             n["total"] += 1
-            f_out = f"{num}{values['-FEXT-']}"
-            if (f_out in out_files) and job == lang.convo:
+            
+            fnames = [f'{prefix}{num}.dat' for prefix, select in zip(FILE_PREFIXES, selected) if select and f'{prefix}{num}.dat' in files]
+            ananame = get_ana_name(fname=fnames[0], input_folder=root)
+            f_out = f"{num}_{ananame}"
+
+            # check wheteher to skip or overwrite output file
+            if (f"{f_out}{values['-FEXT-']}" in out_files) and job == lang.convo:
                 if values["-OUT_SKIP-"]:
                     msg = f'"{f_out}" {lang.fout_exist}'
                     n["skipped"] += 1
+                    skip = True
                 else:
                     msg = f'{lang.overwr} "{f_out}"'
                     n["overwr"] += 1
             else:
                 msg = f'{lang.curr_sample} "{num}"'
 
+            # update progress
             if not sg.one_line_progress_meter(
                 job,
                 i + 1,
@@ -173,24 +191,20 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
                 orientation="h",
             ):
                 return out
-
-            if f_out in out_files and values["-OUT_SKIP-"] and (job == lang.convo):
+            if skip:
                 continue
-            
-            prefixes = ['OC_', 'uv_', 'uv2', 't_']
-            fnames = [f'{prefix}{num}.dat' for prefix, select in zip(prefixes, selected) if select and f'{prefix}{num}.dat' in files]
 
             if fnames:
                 df = convert(fnames, root, offs, corr=values["-CORR-"])
-
+                
                 if job == lang.convo:
-                    save_data(df, output_folder, f"{num}", values)
+                    save_data(df, output_folder, f_out, values)
 
                 if window["-INTEGRALS-"].get() != []:
                     integrals = pd.concat(
                         [integrate(df, bounds)],
-                        keys=[(num)],
-                        names=[lang.sample, lang.signal],
+                        keys=[(num, ananame)],
+                        names=[lang.sample, lang.name,lang.signal],
                     )
                     if values["-SATUR-"]:
                         warning_text = ", ".join(
@@ -220,7 +234,7 @@ def run(window: sg.Window, values: Mapping, offs: Mapping, job: str):
 
     return out
 
-
+# make directory tree used for sg.Tree
 def get_dirtree(grandparent):
     treedata = sg.TreeData()
     grandparent = Path(grandparent)
@@ -233,6 +247,7 @@ def get_dirtree(grandparent):
             treedata.insert(parent, child.as_posix(), name, [])
     return treedata
 
+# get analysis number 
 def get_nums(path):
     files = os.listdir(path)
     return files, sorted(list(
@@ -240,7 +255,6 @@ def get_nums(path):
     ), reverse=True)
 
 def get_files(path, num_0, num_1, chunk=0, n_files= 100):
-    prefix = ["OC_", "UV_", "UV2", "T_"]
     if not path:
         return []
     files, nums = get_nums(path)
@@ -251,6 +265,7 @@ def get_files(path, num_0, num_1, chunk=0, n_files= 100):
 
     signals = {
         num: {
+            "name": [get_ana_name(fname=file, input_folder=path) for file in files if num in file and file.endswith(".dat")][0] , 
             "files": [file[:-9].upper() for file in files if num in file],
             "time": min(
                 [
@@ -259,14 +274,16 @@ def get_files(path, num_0, num_1, chunk=0, n_files= 100):
                     if num in file
                 ]
             ),
+            
         }
         for num in nums
     }
     return [
         [
             num,
+            dat["name"],
             time.strftime("%Y-%m-%d", time.localtime(dat["time"])),
-            *["x" if p in dat["files"] else "" for p in prefix],
+            *["x" if p.upper() in dat["files"] else "" for p in FILE_PREFIXES],
         ]
         for num, dat in signals.items()
     ]
@@ -286,9 +303,8 @@ def draw_plot(window: sg.Window, values: Mapping, num: str, offs: Mapping):
         values["-UV2_P-"],
         values["-T_P-"],
     )
-    prefixes = ['OC_', 'uv_', 'uv2', 't_']
     files = os.listdir(path)
-    fnames = [f'{prefix}{num}.dat' for prefix, select in zip(prefixes, selected) if select and f'{prefix}{num}.dat' in files]
+    fnames = [f'{prefix}{num}.dat' for prefix, select in zip(FILE_PREFIXES, selected) if select and f'{prefix}{num}.dat' in files]
 
     if fnames:
         df = convert(fnames, path, offs, corr=values["-CORR-"])
@@ -410,3 +426,4 @@ def update_ftree(window: sg.Window, values: list, path: str, reverse: bool):
                     n_files=MAX_DIR)
     window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
     window['-PAGE_RANGE-'].update(f'{PAGE} / {PAGES}')
+

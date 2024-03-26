@@ -10,4 +10,6 @@ INT_FILE = 'integrals.csv'
 AU_THRESH = {'OC':70}
 
 
-signals = ["OC", "UV", "UV2", "t"]
+SIGNALS = ["OC", "UV", "UV2", "t"]
+FILE_PREFIXES = ['OC_', 'uv_', 'uv2', 't_']
+

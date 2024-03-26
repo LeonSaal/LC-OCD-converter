@@ -1,6 +1,6 @@
 import PySimpleGUI as sg
 from ..lang import lang
-from ..cfg import signals
+from ..cfg import SIGNALS
 
 
 ## Settings tab
@@ -26,7 +26,7 @@ signal_frame = [
         sg.T(lang.incl_signal),
         *[
             sg.CBox(signal, default=True, key=f"-{signal.upper()}-", enable_events=True)
-            for signal in signals
+            for signal in SIGNALS
         ],
     ],
     [

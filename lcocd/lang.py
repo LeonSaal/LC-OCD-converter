@@ -64,7 +64,7 @@ class EN:
     signal = "Signal"
     no_file_warning = "No files found in "
     min = "minutes"
-    time = "time"
+    time = "Time"
     defa_int_bounds = "See default integration bounds"
     proj = "Visit Project online"
     contact = "Contact"
@@ -88,6 +88,7 @@ class EN:
     file_selection = 'Select file range'
     from_ = 'from: '
     to = 'to: '
+    num = "#"
 
 
 lang = EN

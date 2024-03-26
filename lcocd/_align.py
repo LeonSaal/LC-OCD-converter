@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import PySimpleGUI as sg
 from matplotlib.lines import Line2D
 
-from .cfg import signals
+from .cfg import SIGNALS
 from .lang import EN as lang
 from ._funcs import clean_figure
 
@@ -69,20 +69,20 @@ def align_window(window: sg.Window, values: list, offs: Mapping):
                 size=(15, 10),
             ),
         ]
-        for signal in signals
+        for signal in SIGNALS
     ]
     names = [
         [
             sg.T(f"{signal}:"),
         ]
-        for signal in signals
+        for signal in SIGNALS
     ]
 
     lo_ft = [
         [
             sg.Table(
                 values,
-                headings=[lang.file, lang.time, *signals],
+                headings=[lang.file, lang.time, *SIGNALS],
                 key="-T_FILES-",
                 expand_x=True,
                 enable_click_events=True,
@@ -138,7 +138,7 @@ def align_window(window: sg.Window, values: list, offs: Mapping):
             break
 
         if event == "-RESET-":
-            for signal in signals:
+            for signal in SIGNALS:
                 window[signal].update(value=0)
             window["x"].update(value=60)
             clean_figure(2)
@@ -153,7 +153,7 @@ def align_window(window: sg.Window, values: list, offs: Mapping):
                     )
                     reverse = ~reverse
 
-        new_offs = {signal: values[signal] for signal in signals}
+        new_offs = {signal: values[signal] for signal in SIGNALS}
 
         if (values["-T_FILES-"] and values["-T_FILES-"][0] >= 0):
             num = window["-T_FILES-"].get()[values["-T_FILES-"][0]][0]

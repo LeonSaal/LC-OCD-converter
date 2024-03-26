@@ -25,7 +25,7 @@ from ._funcs import (
     get_nums,
     update_ftree
 )
-from .cfg import SET_FILE, INT_FILE, default_int, signals
+from .cfg import SET_FILE, INT_FILE, default_int, SIGNALS
 from .lang import lang
 from .layout import layout
 from .tabs.integrate import headings
@@ -95,7 +95,7 @@ def gui() -> None:
     PAGES = 1
     MAX_DIR =100
 
-    offs = {signal: 0 for signal in signals}
+    offs = {signal: 0 for signal in SIGNALS}
     cfg = configparser.ConfigParser()
 
     if os.path.exists(SET_FILE):
@@ -112,7 +112,7 @@ def gui() -> None:
                     window[key.upper()].update(val)
 
         if "offset" in cfg:
-            for signal in signals:
+            for signal in SIGNALS:
                 if signal.lower() in cfg["offset"]:
                     num = cfg["offset"][signal.lower()]
                     try:

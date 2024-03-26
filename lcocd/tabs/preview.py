@@ -30,11 +30,14 @@ folder_frame = [
                 [
                     sg.Table(
                         [[]],
-                        headings=[lang.file, lang.time, "OC", "UV", "UV2", "t"],
+                        headings=[lang.num, lang.name, lang.time, "OC", "UV", "UV2", "t"],
+                        col_widths=[5, 20, 8]+[3]*4, 
                         key="-T_FILES-",
-                        expand_x=True,
+                        expand_x=False,
+                        auto_size_columns=False,
                         enable_click_events=True,
                         tooltip=lang.tip_ftable,
+                        justification="left",
                         num_rows=7,
                         # right_click_menu=['',[lang.convert, lang.int]]
                     )
