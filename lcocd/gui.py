@@ -78,13 +78,17 @@ def update_int(window: sg.Window, integrate: bool):
     pass
 
 
-def update_window(window):
+def update_window(window: sg.Window):
     if window["-INP_FOLDER-"].DisplayText and window["-OUT_FOLDER-"].DisplayText:
         window["-RUN-"].update(disabled=False)
         window["-B_INT-"].update(disabled=False)
     else:
         window["-RUN-"].update(disabled=True)
         window["-B_INT-"].update(disabled=True)
+
+def update_int_fname(window: sg.Window):
+    fname = f'{lang.intfname}_{window["-FILE_SEL_COMBO_0-"].get()}-{window["-FILE_SEL_COMBO_1-"].get()}'
+    window["-INT_FNAME-"].update(fname)
 
 # load settings from .ini and integration bounds and set UI accordingly
 def load_settings(window: sg.Window, offs: Mapping, cfg: configparser.ConfigParser):
@@ -132,10 +136,14 @@ def load_settings(window: sg.Window, offs: Mapping, cfg: configparser.ConfigPars
             #                  chunk=0, 
             #                  n_files=MAX_DIR)
             # window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
+        else:
+            nums = []
 
     if posixpath.exists(INT_FILE):
         data = get_int_bounds_from_file(INT_FILE)
         window["-INTEGRALS-"].update(data)
+
+    return nums
 
 # save settings from UI state
 def save_settings(window:sg.Window, values:Mapping, offs: Mapping, cfg=configparser.ConfigParser):
@@ -183,7 +191,7 @@ def gui() -> None:
     offs = {signal: 0 for signal in SIGNALS}
     cfg = configparser.ConfigParser()
 
-    load_settings(window=window, offs=offs, cfg=cfg)
+    nums = load_settings(window=window, offs=offs, cfg=cfg)
 
     while True:
         event, values = window.read()
@@ -213,7 +221,7 @@ def gui() -> None:
                 window["-FILE_SEL_COMBO_0-"].update(values=sorted(nums), value=min(nums))
                 window["-FILE_SEL_COMBO_1-"].update(values=sorted(nums, reverse=True), value=min(nums))
 
-                num_range = int(window["-FILE_SEL_COMBO_1-"].get())-int(window["-FILE_SEL_COMBO_0-"].get())
+                num_range = int(values["-FILE_SEL_COMBO_1-"])-int(values["-FILE_SEL_COMBO_0-"])
                 PAGES = int(num_range / MAX_DIR) +1
                 window["-F_TREE-"].update(get_dirtree(text))
 
@@ -241,13 +249,15 @@ def gui() -> None:
         ## file selection
         if event == "-FILE_SEL_COMBO_0-":
             nums_avail = [val for val in sorted(nums, reverse=True) if val > values["-FILE_SEL_COMBO_0-"]]
-            window["-FILE_SEL_COMBO_1-"].update(values=nums_avail, value = max(nums_avail)) 
+            window["-FILE_SEL_COMBO_1-"].update(values=nums_avail, value = min(values["-FILE_SEL_COMBO_1-"], max(nums_avail))) 
             path = window["-INP_FOLDER-"].DisplayText
             update_ftree(window=window, values=values, path=path, reverse=reverse)
+            update_int_fname(window)
  
         if event == "-FILE_SEL_COMBO_1-":
             path = window["-INP_FOLDER-"].DisplayText
             update_ftree(window=window, values=values, path=path, reverse=reverse)
+            update_int_fname(window)
 
         update_window(window)
 

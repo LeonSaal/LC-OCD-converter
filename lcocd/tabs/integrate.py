@@ -43,4 +43,4 @@ int_frame = [
 ]
 
 ## Integration Tab
-tab_int = [[sg.Frame(lang.bounds_int,int_frame, expand_x=True)],[sg.T(lang.fname),sg.Input('Integrals', k='-INT_FNAME-'),sg.Push(),sg.B(lang.int, key="-B_INT-", disabled=True)]]
+tab_int = [[sg.Frame(lang.bounds_int,int_frame, expand_x=True)],[sg.T(lang.fname),sg.Input(lang.intfname, k='-INT_FNAME-'),sg.Push(),sg.B(lang.int, key="-B_INT-", disabled=True)]]

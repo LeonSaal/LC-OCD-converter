@@ -90,6 +90,7 @@ class EN:
     to = 'to: '
     num = "#"
     cont="Continue"
+    intfname = "Integrals"
 
 
 lang = EN
