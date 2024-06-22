@@ -93,6 +93,7 @@ def update_int_fname(window: sg.Window):
 # load settings from .ini and integration bounds and set UI accordingly
 def load_settings(window: sg.Window, offs: Mapping, cfg: configparser.ConfigParser):
     PAGES = 1
+    nums = []
     if posixpath.exists(SET_FILE):
         cfg.read(SET_FILE)
         if "values" in cfg:
@@ -136,8 +137,6 @@ def load_settings(window: sg.Window, offs: Mapping, cfg: configparser.ConfigPars
             #                  chunk=0, 
             #                  n_files=MAX_DIR)
             # window["-T_FILES-"].update(sort_table(data, 0, reverse=reverse))
-        else:
-            nums = []
 
     if posixpath.exists(INT_FILE):
         data = get_int_bounds_from_file(INT_FILE)
@@ -219,9 +218,9 @@ def gui() -> None:
                 window["-ALIGN-"].update(disabled=False)
                 _, nums = get_nums(text)
                 window["-FILE_SEL_COMBO_0-"].update(values=sorted(nums), value=min(nums))
-                window["-FILE_SEL_COMBO_1-"].update(values=sorted(nums, reverse=True), value=min(nums))
+                window["-FILE_SEL_COMBO_1-"].update(values=sorted(nums, reverse=True), value=max(nums))
 
-                num_range = int(values["-FILE_SEL_COMBO_1-"])-int(values["-FILE_SEL_COMBO_0-"])
+                num_range = int(window["-FILE_SEL_COMBO_1-"].get())-int(window["-FILE_SEL_COMBO_0-"].get())
                 PAGES = int(num_range / MAX_DIR) +1
                 window["-F_TREE-"].update(get_dirtree(text))
 
@@ -248,8 +247,8 @@ def gui() -> None:
 
         ## file selection
         if event == "-FILE_SEL_COMBO_0-":
-            nums_avail = [val for val in sorted(nums, reverse=True) if val > values["-FILE_SEL_COMBO_0-"]]
-            window["-FILE_SEL_COMBO_1-"].update(values=nums_avail, value = min(values["-FILE_SEL_COMBO_1-"], max(nums_avail))) 
+            nums_avail = [val for val in sorted(nums, reverse=True) if val > window["-FILE_SEL_COMBO_0-"].get()]
+            window["-FILE_SEL_COMBO_1-"].update(values=nums_avail, value = min(window["-FILE_SEL_COMBO_1-"].get(), max(nums_avail))) 
             path = window["-INP_FOLDER-"].DisplayText
             update_ftree(window=window, values=values, path=path, reverse=reverse)
             update_int_fname(window)
