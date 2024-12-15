@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="lcocd", 
-    version="v1.0",
+    version="2024.12",
     author="Leon Saal",
     description="A package for converting and previewing LC-OCD-UV data.",
     long_description=long_description,
@@ -17,6 +17,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     packages=setuptools.find_packages(),
-    install_requires=["pandas", "matplotlib", "openpyxl", "lxml", "PySimpleGUI","xlwt",'odfpy'],
+    install_requires=["pandas", "matplotlib", "openpyxl", "lxml","xlwt",'odfpy'],
     python_requires=">=3.6",
 )
