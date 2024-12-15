@@ -1,23 +1,26 @@
-import tkinter as tk
-import tkinter.ttk as ttk
-import tkinter.messagebox as msg
-from tkinter.filedialog import asksaveasfilename, askdirectory, askopenfilename
-import posixpath as pxp
-import time
+import json
 import os
 import os.path
-from pathlib import Path
+import posixpath as pxp
 import re
+import time
+import tkinter as tk
+import tkinter.messagebox as msg
+import tkinter.ttk as ttk
+from functools import partial
+from itertools import cycle, islice
+from pathlib import Path
+from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
+
 import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
 from matplotlib import rcParams
 from matplotlib.lines import Line2D
-import pandas as pd
-from itertools import cycle
-import json
-from itertools import islice
-from functools import partial
-from ._func import get_ana_name, convert, save_data, integrate
+
+matplotlib.use("TkAgg")
+
+from ._func import convert, get_ana_name, integrate, save_data
 
 FILE_PREFIXES = ['OC_', 'uv_', 'uv2', 't_']
 SIGNALS = ["OC", "UV", "UV2", "t"]
@@ -32,8 +35,6 @@ DEFAULT_INT_BOUNDS = {
      "Low-molecular-weight neutrals": [66, 120]
 }
 
-
-            
 
 class EdiTable(tk.Frame):
     def __init__(self, parent, vals, *args, **kwargs) -> None:
@@ -180,7 +181,6 @@ class App(tk.Frame):
 
         # delete
         menu_set.add_separator()
-        menu_set.add_command(label="Delete", command=self.clear_preview)
         menu_set.add_command(label="Load settings", command=self.load_settings)
         menu_set.add_command(label="Save settings", command=self.save_settings)
 
@@ -191,7 +191,7 @@ class App(tk.Frame):
         #paths
         self.input_path = tk.StringVar(value="")
         self.output_path = tk.StringVar(value="")
-        self.save_path = (Path(__file__) / "settings.json").as_posix() #(Path(r"C:\Users\Leon\Desktop")/"settings.json").as_posix()
+        self.save_path = "settings.json"
 
         # progress
         self._progress_text = tk.StringVar(value="")
@@ -379,6 +379,7 @@ class App(tk.Frame):
 
     def on_closing(self, event=None):
         self.save_state()
+        plt.close("all")
         self.parent.destroy()
 
     def save_state(self):
@@ -533,7 +534,7 @@ class App(tk.Frame):
                 save_data(df, output_folder, f_out, self.settings_file_format.get())
 
         # give summary
-        message = f"Files total: {n["total"]}"+(
+        message = f'Files total: {n["total"]}'+(
             f'\nFiles overwriten: {n["overwr"]}'
             if not self.settings_skip_exist.get()
             else f'\nFiles skipped: {n["skipped"]}'
@@ -598,7 +599,7 @@ class App(tk.Frame):
                             [
                                 SIGNAL
                                 for SIGNAL in SIGNALS
-                                if ((SIGNAL in df) and (eval(f"self.au_thresh_use_{SIGNAL}").get()) and (df[SIGNAL].max() > float(eval(f"self.au_thresh_{SIGNAL}").get())))
+                                if ((SIGNAL in df) and (self.__dict__[f"au_thresh_use_{SIGNAL}"].get()) and (df[SIGNAL].max() > float(self.__dict__[f"au_thresh_{SIGNAL}"].get())))
                             ]
                         )
                         integrals["SATURATION_WARNING"] = warning_text
@@ -624,8 +625,8 @@ class App(tk.Frame):
         self.prev_colors = cycle([color["color"] for color in rcParams["axes.prop_cycle"]])
         self.prev_legend_elements = {"handles": [], "labels": []}
         with plt.ion():
-            fig = plt.figure(1)
-            fig.clear(keep_observers=True)
+            self.fig = plt.figure(1)
+            self.fig.clear(keep_observers=True)
         
     def preview(self, event = None):
         iid = self.browser_table.focus()
@@ -639,8 +640,8 @@ class App(tk.Frame):
 
         if name in self.prev_legend_elements["labels"]:
             return
-
-        selected = [eval(f"self.prev_{SIGNAL}.get()") for SIGNAL in SIGNALS]
+        
+        selected = [self.__dict__[f"prev_{SIGNAL}"].get() for SIGNAL in SIGNALS]
         fnames = [f'{prefix}{num}.dat' for prefix, select, avail in zip(FILE_PREFIXES, selected, avails) if select and avail]
 
         if fnames:
@@ -650,25 +651,26 @@ class App(tk.Frame):
 
         lss = {"OC": "solid", "UV": "dashdot", "UV2": "dashed", "t": "dotted"}
         with plt.ion():
-            plt.figure(1)
-            fig = plt.gcf()
-            DPI = fig.get_dpi()
+            self.fig = plt.figure(1)
+            self.ax = self.fig.gca()
+            
+            #DPI = fig.get_dpi()
             # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
-            fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
+            #fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
             # -------------------------------
             to_add = [column for column in df.columns]
             if not to_add:
                 return
-            
+
             self.prev_in_graph.update(to_add)
             color = next(COLORS)
 
             for plot in to_add:
-                plt.plot(df[plot], color=color, ls=lss[plot])
+                self.ax.plot(df[plot], color=color, ls=lss[plot])
 
             if self.prev_int_bounds.get():
                 start = list({bound for bounds in self.int_bounds.values() for bound in bounds})
-                plt.vlines(start, ymin=0, ymax=plt.ylim()[1], colors="gray")
+                self.ax.vlines(start, ymin=self.ax.get_ylim()[0], ymax=self.ax.get_ylim()[1], colors="gray")
 
             self.prev_legend_elements["handles"].append(
                 Line2D(
@@ -691,20 +693,21 @@ class App(tk.Frame):
                 "labels": [SIGNAL for SIGNAL in SIGNALS if SIGNAL in self.prev_in_graph],
             }
 
-            objs = plt.gca().findobj(matplotlib.legend.Legend)
+            objs = self.fig.gca().findobj(matplotlib.legend.Legend)
             for obj in objs:
                 obj.remove()
 
-            plt.xlabel("Minutes")
-            base_legend = plt.legend(**base_legend_elements, loc="upper left")
-            plt.legend(**self.prev_legend_elements, loc="upper right")
-            plt.gca().add_artist(base_legend)
-            plt.show(block=True)
+            self.ax.set_xlabel("Minutes")
+            base_legend = self.ax.legend(**base_legend_elements, loc="upper left")
+            self.ax.legend(**self.prev_legend_elements, loc="upper right")
+            self.fig.gca().add_artist(base_legend)
+            plt.show(block=False)
         
     def set_integration_bounds(self):
         window = tk.Toplevel(self)
         window.title("Integration Bounds")
         table = EdiTable(window, self.int_bounds)
+        window.bind("<Escape>", window.destroy)
         def on_closing():
             iids = table.tree.get_children()
             items = [table.tree.item(iid) for iid in iids]
@@ -747,6 +750,3 @@ def gui():
     root.title("LC-OCD-Converter")
     App(root)
     root.mainloop()
-
-if __name__=="__main__":
-    gui()
