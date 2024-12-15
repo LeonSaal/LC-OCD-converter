@@ -580,11 +580,10 @@ class App(tk.Frame):
             self._progress_text.set(f"{i} / {n_items} ({i/n_items:.0%})")
     
             num = item["values"][0]
+            ananame = item["values"][1]
             fnames = [f'{prefix}{num}.dat' for prefix, select in zip(FILE_PREFIXES, selected) if select and f'{prefix}{num}.dat' in input_files]
             if not fnames:
                 continue
-
-            ananame = get_ana_name(fname=fnames[0], input_folder=input_folder)
 
             if fnames:
                 df = convert(fnames, input_folder, align=self.settings_align.get(), corr=self.settings_correct.get())
@@ -750,3 +749,6 @@ def gui():
     root.title("LC-OCD-Converter")
     App(root)
     root.mainloop()
+
+if __name__=="__main__":
+    gui()

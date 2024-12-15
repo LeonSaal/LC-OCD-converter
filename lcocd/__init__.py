@@ -1,1 +1,1 @@
-from _gui import gui
+from ._gui import gui
