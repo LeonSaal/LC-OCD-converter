@@ -13,6 +13,7 @@ from pathlib import Path
 from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 
 import matplotlib
+import matplotlib.patches
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib import rcParams
@@ -503,8 +504,8 @@ class App(tk.Frame):
 
         input_files = os.listdir(input_folder)
         out_files = os.listdir(output_folder)
+
         #setup output
-        selected = [self.__dict__[f"include_{SIGNAL}"].get() for SIGNAL in SIGNALS]    
         n = {"skipped": 0, "overwr": 0, "total": 0}
         for i, item in enumerate(items, start=1):
             self.parent.update_idletasks()
@@ -515,7 +516,7 @@ class App(tk.Frame):
     
             num = item["values"][0]
             ananame = item["values"][1]
-            fnames = [f'{prefix}{num}.dat' for prefix, select in zip(FILE_PREFIXES, selected) if select and f'{prefix}{num}.dat' in input_files]
+            fnames = [f'{prefix}{num}.dat' for prefix in FILE_PREFIXES if f'{prefix}{num}.dat' in input_files]
             if not fnames:
                 continue
 
@@ -531,6 +532,8 @@ class App(tk.Frame):
 
             if fnames:
                 df = convert(fnames, input_folder, self.settings_align.get(), corr=self.settings_correct.get())
+                selected = [SIGNAL  for SIGNAL in SIGNALS if self.__dict__[f"include_{SIGNAL}"].get()] 
+                df = df[selected]
                 save_data(df, output_folder, f_out, self.settings_file_format.get())
 
         # give summary
@@ -570,7 +573,6 @@ class App(tk.Frame):
         input_files = os.listdir(input_folder)
 
         #setup output
-        selected = [self.__dict__[f"include_{SIGNAL}"].get() for SIGNAL in SIGNALS]    
         n = {"skipped": 0, "overwr": 0, "total": 0}
         for i, item in enumerate(items, start=1):
             self.parent.update_idletasks()
@@ -581,12 +583,14 @@ class App(tk.Frame):
     
             num = item["values"][0]
             ananame = item["values"][1]
-            fnames = [f'{prefix}{num}.dat' for prefix, select in zip(FILE_PREFIXES, selected) if select and f'{prefix}{num}.dat' in input_files]
+            fnames = [f'{prefix}{num}.dat' for prefix in FILE_PREFIXES if f'{prefix}{num}.dat' in input_files]
             if not fnames:
                 continue
 
             if fnames:
                 df = convert(fnames, input_folder, align=self.settings_align.get(), corr=self.settings_correct.get())
+                selected = [SIGNAL for SIGNAL in SIGNALS if self.__dict__[f"include_{SIGNAL}"].get()]    
+                df = df[selected]
                 if self.int_bounds:
                     integrals = pd.concat(
                         [integrate(df, self.int_bounds)],
@@ -626,11 +630,47 @@ class App(tk.Frame):
         with plt.ion():
             self.fig = plt.figure(1)
             self.fig.clear(keep_observers=True)
+            plt.close()
+
+    # tbd
+    def modify_bounds(self, event=None):
+        x= round(event.xdata, 2)
+        if event.dblclick and event.key=="control":
+            self.int_bounds = {name:xrange for name, xrange in self.int_bounds.items() if not float(xrange[0]) < x < float(xrange[1])}
+        # elif event.dblclick:
+        #     self.int_bounds.update({f"Range {len(self.int_bounds)}": [x, x+10]})
+        #     self.ax.vlines(x,ymin=self.ylim[0], ymax=self.ylim[1])
+        plt.show()
+
+
+    # draw integration ranges, in red if hovering over it
+    def draw_range_name(self, event=None):
+        if not event.xdata:
+            return
+        x = round(event.xdata, 2)
+        title = ""
+        start = None
+        end = None
+        for name, (start, end) in self.int_bounds.items():
+            if float(start) < x < float(end):
+                title=name
+                break
+  
+        xranges = sorted([xrange for xrange in self.int_bounds.values()], key=lambda xr: xr[0]==start and xr[1]==end)
+        for i, xrange in enumerate(xranges):
+            color  = "white" if i < (len(xranges) -1) or not title else "#B3FFCA"
+            self.ax.axvspan(*xrange, facecolor=color, edgecolor=None, label=f"_{i}")
+        self.ax.set_title(title)
+        plt.show()
+        
+    def update_preview(self, event=None):
+        pass
         
     def preview(self, event = None):
         iid = self.browser_table.focus()
         if not iid:
             return
+        
         item = self.browser_table.item(iid)
         path = item["text"]
         num = item["values"][0]
@@ -640,23 +680,21 @@ class App(tk.Frame):
         if name in self.prev_legend_elements["labels"]:
             return
         
-        selected = [self.__dict__[f"prev_{SIGNAL}"].get() for SIGNAL in SIGNALS]
-        fnames = [f'{prefix}{num}.dat' for prefix, select, avail in zip(FILE_PREFIXES, selected, avails) if select and avail]
+        fnames = [f'{prefix}{num}.dat' for prefix, avail in zip(FILE_PREFIXES, avails) if avail]
 
         if fnames:
-            df = convert(fnames, path, align=self.settings_align.get(), corr=self.settings_correct.get()) 
+            df = convert(fnames, path, align=self.settings_align.get(), corr=self.settings_correct.get())
+            selected = [SIGNAL  for SIGNAL in SIGNALS if self.__dict__[f"prev_{SIGNAL}"].get()] 
+            df = df[selected]
         else:
             return
 
         lss = {"OC": "solid", "UV": "dashdot", "UV2": "dashed", "t": "dotted"}
         with plt.ion():
             self.fig = plt.figure(1)
+            # bind clear to closing of window
+            self.fig.canvas.mpl_connect("close_event", self.clear_preview)
             self.ax = self.fig.gca()
-            
-            #DPI = fig.get_dpi()
-            # ------------------------------- you have to play with this size to reduce the movement error when the mouse hovers over the figure, it's close to canvas size
-            #fig.set_size_inches(404 * 2 / float(DPI), 404 / float(DPI))
-            # -------------------------------
             to_add = [column for column in df.columns]
             if not to_add:
                 return
@@ -667,9 +705,12 @@ class App(tk.Frame):
             for plot in to_add:
                 self.ax.plot(df[plot], color=color, ls=lss[plot])
 
+            self.ylim = self.ax.get_ylim()
+
             if self.prev_int_bounds.get():
-                start = list({bound for bounds in self.int_bounds.values() for bound in bounds})
-                self.ax.vlines(start, ymin=self.ax.get_ylim()[0], ymax=self.ax.get_ylim()[1], colors="gray")
+                # bind labeling of integration ranges
+                self.fig.canvas.mpl_connect("button_press_event", self.modify_bounds)
+                self.fig.canvas.mpl_connect("motion_notify_event", self.draw_range_name)
 
             self.prev_legend_elements["handles"].append(
                 Line2D(
