@@ -407,7 +407,7 @@ class App(tk.Frame):
         text = """
         Developed by:\tLeon Saal\n
         Site:\t\t\tgithub.com/LeonSaal/LC-OCD-converter\n
-        Last Modified:\tDecember 2024
+        Last Modified:\tJanuary 2025
         """
         ttk.Label(window, text=text).grid()
 
