@@ -1,4 +1,7 @@
 import json
+# https://stackoverflow.com/a/1447581
+from json import encoder
+encoder.FLOAT_REPR = lambda o: format(o, '.2f')
 import os
 import os.path
 import posixpath as pxp
@@ -18,6 +21,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib import rcParams
 from matplotlib.lines import Line2D
+from matplotlib.axes import Axes
 
 matplotlib.use("TkAgg")
 
@@ -215,12 +219,14 @@ class App(tk.Frame):
         # preview
         self.prev_legend_elements = {"handles": [], "labels": []}
         self.prev_in_graph = set()
+        self.xranges = []
+        self.tmp_xrange = {}
 
         # integration
         self.int_bounds = {}
 
         # table edit
-        self.browser_table_entry_val = tk.StringVar(value="")
+        self._browser_table_entry_val = tk.StringVar(value="")
         self.browser_table_iid = None
 
     def create_widgets(self, parent):
@@ -248,7 +254,7 @@ class App(tk.Frame):
             self.browser_table.heading(column, text=column)
             self.browser_table.column(column, width=width, stretch=stretch, minwidth=width)
 
-        self.browser_table_entry = ttk.Entry(self.browser_table, textvariable=self.browser_table_entry_val)
+        self.browser_table_entry = ttk.Entry(self.browser_table, textvariable=self._browser_table_entry_val)
 
         self.browser_menu = tk.Menu(self.browser_table)
         for option in ["select all", "convert", "integrate", "edit name"]:
@@ -311,7 +317,7 @@ class App(tk.Frame):
         if not neighbor_iid:
             return
         self.browser_table.selection_set([neighbor_iid])
-        self.browser_table.set(self.browser_table_iid, column="#2", value=self.browser_table_entry_val.get())
+        self.browser_table.set(self.browser_table_iid, column="#2", value=self._browser_table_entry_val.get())
         self.browser_table_iid = neighbor_iid
         self.edit_name(event)
 
@@ -330,7 +336,7 @@ class App(tk.Frame):
             return
         cx, cy, cw, ch = self.browser_table.bbox(iid, column = "#2")
         self.browser_table_entry.place(x=cx, y=cy, width=cw, height=ch)
-        self.browser_table_entry_val.set(value=self.browser_table.item(iid)["values"][1])
+        self._browser_table_entry_val.set(value=self.browser_table.item(iid)["values"][1])
         self.browser_table_entry.icursor(tk.END)
         self.browser_table_entry.select_range(0, tk.END)
         self.browser_table_entry.focus_set()
@@ -339,7 +345,7 @@ class App(tk.Frame):
     def browser_table_edit(self, event=None):
         if not self.browser_table_iid:
             return
-        self.browser_table.set(self.browser_table_iid, column="#2", value=self.browser_table_entry_val.get())
+        self.browser_table.set(self.browser_table_iid, column="#2", value=self._browser_table_entry_val.get())
         self.browser_table_entry.place_forget()
         self.browser_table.focus_set()
 
@@ -500,8 +506,8 @@ class App(tk.Frame):
             msg.showwarning(title="Warning", message="Specify output path first!")
             return
         input_folder = items[0]["text"]
-        # list files in outputfolder to check for skippable files
 
+        # list files in outputfolder to check for skippable files
         input_files = os.listdir(input_folder)
         out_files = os.listdir(output_folder)
 
@@ -632,35 +638,54 @@ class App(tk.Frame):
             self.fig.clear(keep_observers=True)
             plt.close()
 
-    # tbd
     def modify_bounds(self, event=None):
-        x= round(event.xdata, 2)
-        if event.dblclick and event.key=="control":
+        x= round(event.xdata, 1)
+        if event.dblclick and event.key=="control+shift":
             self.int_bounds = {name:xrange for name, xrange in self.int_bounds.items() if not float(xrange[0]) < x < float(xrange[1])}
-        # elif event.dblclick:
-        #     self.int_bounds.update({f"Range {len(self.int_bounds)}": [x, x+10]})
-        #     self.ax.vlines(x,ymin=self.ylim[0], ymax=self.ylim[1])
+            self.draw_range_name(event)
+
+        elif event.dblclick and event.key=="control":
+            if len(self.tmp_xrange) <2:
+                self.tmp_xrange[len(self.tmp_xrange)] = [x, self.ax.axvline(x, color="red", ls="dashed")]
+
+            if len(self.tmp_xrange)==2:
+                for val in self.tmp_xrange.values():
+                    val[1].remove()
+                self.int_bounds.update({f"Range {len(self.int_bounds)}": list(sorted([val[0] for val in self.tmp_xrange.values()]))})
+                self.draw_range_name(event)
+                self.tmp_xrange = {}
         plt.show()
 
-
-    # draw integration ranges, in red if hovering over it
+    # draw integration ranges, in green if hovering over it
     def draw_range_name(self, event=None):
         if not event.xdata:
             return
         x = round(event.xdata, 2)
-        title = ""
-        start = None
-        end = None
-        for name, (start, end) in self.int_bounds.items():
-            if float(start) < x < float(end):
-                title=name
-                break
-  
+
+        for xrange in self.xranges:
+            xrange.remove()
+        self.xranges = []
+        
+        if self.curx in self.ax.get_children():
+            self.curx.remove()
+
+        if event.key=="control":
+            self.curx = self.ax.axvline(x, color="red", ls="dashed")
+
+        candidates = {name: (start, end) for name, (start, end) in self.int_bounds.items() if start < x < end}
+        candidates_sort = sorted(candidates.items(), key = lambda item: item[1][0]-item[1][1])
+        if candidates_sort:
+            title, (start, end) = candidates_sort.pop()
+        else:
+            plt.show()
+            return
+            
         xranges = sorted([xrange for xrange in self.int_bounds.values()], key=lambda xr: xr[0]==start and xr[1]==end)
         for i, xrange in enumerate(xranges):
             color  = "white" if i < (len(xranges) -1) or not title else "#B3FFCA"
-            self.ax.axvspan(*xrange, facecolor=color, edgecolor=None, label=f"_{i}")
+            self.xranges.append(self.fig.gca().axvspan(*xrange, facecolor=color, edgecolor=None, label=f"_{i}"))
         self.ax.set_title(title)
+
         plt.show()
         
     def update_preview(self, event=None):
@@ -709,6 +734,7 @@ class App(tk.Frame):
 
             if self.prev_int_bounds.get():
                 # bind labeling of integration ranges
+                self.curx = self.ax.axvline(color="red", ls="dashed", alpha=0)
                 self.fig.canvas.mpl_connect("button_press_event", self.modify_bounds)
                 self.fig.canvas.mpl_connect("motion_notify_event", self.draw_range_name)
 
