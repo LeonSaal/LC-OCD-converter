@@ -16,12 +16,12 @@ from pathlib import Path
 from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 
 import matplotlib
-import matplotlib.patches
-import matplotlib.pyplot as plt
+import matplotlib.patches 
 import pandas as pd
 from matplotlib import rcParams
 from matplotlib.lines import Line2D
-from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 
 matplotlib.use("TkAgg")
 
@@ -198,9 +198,6 @@ class App(tk.Frame):
         self.output_path = tk.StringVar(value="")
         self.save_path = "settings.json"
 
-        # progress
-        self._progress_text = tk.StringVar(value="")
-        self._progress_val = tk.IntVar(value=0)
         for SIGNAL in SIGNALS:
             self.__setattr__(f"prev_{SIGNAL}", tk.BooleanVar(value=False if SIGNAL == "t" else True))
             self.__setattr__(f"include_{SIGNAL}", tk.BooleanVar(value=False if SIGNAL == "t" else True))
@@ -217,6 +214,7 @@ class App(tk.Frame):
         self.settings_align = tk.BooleanVar(value=True)
 
         # preview
+        self.canvas = None
         self.prev_legend_elements = {"handles": [], "labels": []}
         self.prev_in_graph = set()
         self.xranges = []
@@ -238,9 +236,7 @@ class App(tk.Frame):
         output_pathlab = tk.Label(input_frame, textvariable=self.output_path, relief=tk.RIDGE, justify="left")
         output_pathchoose = ttk.Button(input_frame, text="Output path", command=self.set_output_path)
 
-        browser_frame = tk.LabelFrame(parent, text="Browse files")
-        self.browser_paths = ttk.Treeview(browser_frame)
-        
+        browser_frame = tk.LabelFrame(parent, text="Browse files")   
         
         self.browser_scroll = tk.Scrollbar(browser_frame)
         columns = ("#", "Name", "Date", *SIGNALS)
@@ -248,9 +244,12 @@ class App(tk.Frame):
                                           columns=columns, 
                                           show="headings",
                                           yscrollcommand=self.browser_scroll.set)
+        widths = [40, 300, 70]+ [30]*4
+        self.browser_width = sum(widths)
+        stretches = [tk.NO, tk.NO]+[tk.YES]*5
         for column, width, stretch in zip(
-            columns, [40, 150, 70]+ [30]*4, 
-            [tk.NO, tk.NO]+[tk.YES]*5):
+            columns, widths, stretches
+            ):
             self.browser_table.heading(column, text=column)
             self.browser_table.column(column, width=width, stretch=stretch, minwidth=width)
 
@@ -271,11 +270,8 @@ class App(tk.Frame):
         self.browser_menu.add_cascade(menu=browser_menu_files, label="files per page")
         for rows in [25, 50, 100, 250]:
             browser_menu_files.add_radiobutton(label=rows, variable=self.settings_num_rows)
-        progress_lab = ttk.Label(browser_frame, textvariable=self._progress_text)
-        self.progress_bar = ttk.Progressbar(browser_frame, 
-                                            variable=self._progress_val, 
-                                            orient=tk.HORIZONTAL, 
-                                            mode="determinate")
+        
+        self.progress_canvas = tk.Canvas(parent, width=self.browser_width, height=20)
     
         # layout
         input_frame.grid(column=0, row=0, sticky=tk.W+tk.E)
@@ -285,15 +281,17 @@ class App(tk.Frame):
         output_pathlab.grid(column=1, row=1, sticky=tk.W+tk.E)
 
         browser_frame.grid(column=0, row=2, sticky=tk.W+tk.E)
-        self.browser_paths.grid(column=0, row=0, sticky=tk.W+tk.E+tk.S+tk.N)
-        self.browser_table.grid(column=1, row=0, sticky=tk.W+tk.E)
-        self.browser_scroll.grid(column=2, row = 0, sticky=tk.S+tk.N)
+        ttk.Label(browser_frame, text = "").pack(side=tk.LEFT)
+        self.browser_table.pack(side=tk.LEFT)
+        self.browser_scroll.pack(side=tk.LEFT)
+        ttk.Label(browser_frame, text = "").pack(side=tk.LEFT)
         
-        progress_lab.grid(row=1, column=0, sticky=tk.W)
-        self.progress_bar.grid(row=1, column=1, columnspan=1, sticky=tk.W+tk.E)
-
+        # progressbar
+        self.progress_canvas.grid(row=3, sticky = tk.W+tk.E, padx=10)
+        self.progress_bar = self.progress_canvas.create_rectangle(0,0, 0 ,20, fill="green", outline="green")
+        self.progress_lab = self.progress_canvas.create_text(self.browser_width/2,10 ,text = "", anchor =tk.CENTER)
+        
         # events
-        self.browser_paths.bind("<Double-Button-1>", self.browser_change_path)
         self.browser_table.bind("<Button-3>", self.right_click_menu)
         self.browser_table.bind("<Double-Button-1>", self.preview)
         self.browser_table.bind("<Control-KeyPress-a>", lambda e: self.select_all())
@@ -366,7 +364,6 @@ class App(tk.Frame):
                 self.__dict__[key] = val
         
         if os.path.exists(self.input_path.get()):
-            self.browser_update_paths()
             self.browser_update_files_in_path()
             self.browser_update_tbl()
         else:
@@ -386,7 +383,6 @@ class App(tk.Frame):
 
     def on_closing(self, event=None):
         self.save_state()
-        plt.close("all")
         self.parent.destroy()
 
     def save_state(self):
@@ -479,7 +475,6 @@ class App(tk.Frame):
         if not path:
             return
         self.input_path.set(path)
-        self.browser_update_paths()
         self.browser_update_files_in_path()
         self.browser_update_tbl()
 
@@ -493,17 +488,21 @@ class App(tk.Frame):
         if path:
             self.browser_update_tbl()
 
+    def update_progressbar(self, i, n, name=None):
+        self.progress_canvas.coords(self.progress_bar, 0, 0, i/n* self.browser_width, 20)
+        text = f"{i}/{n} : {name!r} ({i/n:.0%})" if name else f"{i} / {n} ({i/n:.0%})"
+        self.progress_canvas.itemconfig(self.progress_lab, text=text)
+
     def convert(self):
         iids = self.browser_table.selection()
         if not iids:
             return
         items = [self.browser_table.item(iid) for iid in iids]
         n_items = len(items)
-        self.progress_bar.configure(maximum=n_items)
  
         output_folder = self.output_path.get()
         if not output_folder:
-            msg.showwarning(title="Warning", message="Specify output path first!")
+            self.set_output_path()
             return
         input_folder = items[0]["text"]
 
@@ -516,12 +515,9 @@ class App(tk.Frame):
         for i, item in enumerate(items, start=1):
             self.parent.update_idletasks()
             n["total"] += 1
-            counter = self._progress_val.get() +1
-            self._progress_val.set(counter)
-            self._progress_text.set(f"{i} / {n_items} ({i/n_items:.0%})")
-    
             num = item["values"][0]
             ananame = item["values"][1]
+            self.update_progressbar(i, n_items, ananame)
             fnames = [f'{prefix}{num}.dat' for prefix in FILE_PREFIXES if f'{prefix}{num}.dat' in input_files]
             if not fnames:
                 continue
@@ -549,7 +545,6 @@ class App(tk.Frame):
             else f'\nFiles skipped: {n["skipped"]}'
         )
         msg.showinfo("Conversion complete", message=message)
-        self._progress_val.set(0)
 
     def integrate(self):
         iids = self.browser_table.selection()
@@ -563,7 +558,6 @@ class App(tk.Frame):
 
         items = [self.browser_table.item(iid) for iid in iids]
         n_items = len(items)
-        self.progress_bar.configure(maximum=n_items)
         file_formats = sorted(FILE_FORMATS, key=lambda fmt: fmt==self.settings_file_format.get(), reverse=True)
         file_formats = ((f"{fmt.replace('.', '')}", f"*{fmt}") for fmt in file_formats)
         initialdir = self.output_path.get() if self.output_path.get() else self.input_path.get()
@@ -578,17 +572,16 @@ class App(tk.Frame):
         input_folder = items[0]["text"]
         input_files = os.listdir(input_folder)
 
-        #setup output
+        # setup output
         n = {"skipped": 0, "overwr": 0, "total": 0}
         for i, item in enumerate(items, start=1):
             self.parent.update_idletasks()
             n["total"] += 1
-            counter = self._progress_val.get() +1
-            self._progress_val.set(counter)
-            self._progress_text.set(f"{i} / {n_items} ({i/n_items:.0%})")
-    
+            
             num = item["values"][0]
             ananame = item["values"][1]
+            self.update_progressbar(i, n_items, ananame)
+
             fnames = [f'{prefix}{num}.dat' for prefix in FILE_PREFIXES if f'{prefix}{num}.dat' in input_files]
             if not fnames:
                 continue
@@ -615,8 +608,6 @@ class App(tk.Frame):
 
                     out = pd.concat([out, integrals], axis=0)
 
-        self._progress_val.set(0)
-
         try:
             if outfile.endswith(".csv"):
                 out.to_csv(outfile)
@@ -633,15 +624,16 @@ class App(tk.Frame):
         self.prev_in_graph = set()
         self.prev_colors = cycle([color["color"] for color in rcParams["axes.prop_cycle"]])
         self.prev_legend_elements = {"handles": [], "labels": []}
-        with plt.ion():
-            self.fig = plt.figure(1)
-            self.fig.clear(keep_observers=True)
-            plt.close()
+        self.mpl_window.destroy()
+        self.canvas = None
 
     def modify_bounds(self, event=None):
+        if not event.xdata:
+            return
+
         x= round(event.xdata, 1)
-        if event.dblclick and event.key=="control+shift":
-            self.int_bounds = {name:xrange for name, xrange in self.int_bounds.items() if not float(xrange[0]) < x < float(xrange[1])}
+        if event.dblclick and event.key=="ctrl+shift":
+            self.int_bounds = {name:xrange for name, xrange in self.int_bounds.items() if not xrange[0] < x < xrange[1]}
             self.draw_range_name(event)
 
         elif event.dblclick and event.key=="control":
@@ -651,10 +643,24 @@ class App(tk.Frame):
             if len(self.tmp_xrange)==2:
                 for val in self.tmp_xrange.values():
                     val[1].remove()
-                self.int_bounds.update({f"Range {len(self.int_bounds)}": list(sorted([val[0] for val in self.tmp_xrange.values()]))})
+
+                def inp_name(master):
+                    name_win = tk.Toplevel(master)
+                    name_win.title("Set name for range")
+                    name_win.lift(aboveThis=self.fig.canvas._tkcanvas)
+                    name = tk.StringVar(value = f"Range {len(self.int_bounds)}")
+                    name_entry = tk.Entry(name_win, width=40, textvariable=name)
+                    name_entry.grid()
+                    tk.Button(name_win, text = "OK",command = name_win.destroy).grid()
+                    name_win.wait_window()
+                    return name.get()
+
+                name = inp_name(self)
+
+                self.int_bounds.update({name: list(sorted([val[0] for val in self.tmp_xrange.values()]))})
                 self.draw_range_name(event)
                 self.tmp_xrange = {}
-        plt.show()
+        self.canvas.draw()
 
     # draw integration ranges, in green if hovering over it
     def draw_range_name(self, event=None):
@@ -665,7 +671,7 @@ class App(tk.Frame):
         for xrange in self.xranges:
             xrange.remove()
         self.xranges = []
-        
+    
         if self.curx in self.ax.get_children():
             self.curx.remove()
 
@@ -677,16 +683,17 @@ class App(tk.Frame):
         if candidates_sort:
             title, (start, end) = candidates_sort.pop()
         else:
-            plt.show()
+            self.ax.set_title("")
+            self.canvas.draw()
             return
             
         xranges = sorted([xrange for xrange in self.int_bounds.values()], key=lambda xr: xr[0]==start and xr[1]==end)
         for i, xrange in enumerate(xranges):
             color  = "white" if i < (len(xranges) -1) or not title else "#B3FFCA"
             self.xranges.append(self.fig.gca().axvspan(*xrange, facecolor=color, edgecolor=None, label=f"_{i}"))
+        
         self.ax.set_title(title)
-
-        plt.show()
+        self.canvas.draw()
         
     def update_preview(self, event=None):
         pass
@@ -715,60 +722,75 @@ class App(tk.Frame):
             return
 
         lss = {"OC": "solid", "UV": "dashdot", "UV2": "dashed", "t": "dotted"}
-        with plt.ion():
-            self.fig = plt.figure(1)
+
+        if not self.canvas: 
+            self.fig = Figure()
+
+            self.ax = self.fig.add_subplot()
+            self.mpl_window = tk.Toplevel(self)
+
+            # https://matplotlib.org/stable/gallery/user_interfaces/embedding_in_tk_sgskip.html
+            self.canvas = FigureCanvasTkAgg(self.fig, master=self.mpl_window) 
+            self.canvas.draw()
+
             # bind clear to closing of window
             self.fig.canvas.mpl_connect("close_event", self.clear_preview)
-            self.ax = self.fig.gca()
-            to_add = [column for column in df.columns]
-            if not to_add:
-                return
+            
+            # pack_toolbar=False will make it easier to use a layout manager later on.
+            toolbar = NavigationToolbar2Tk(self.canvas, self.mpl_window)
+            toolbar.update()
+            self.canvas.get_tk_widget().pack()
+            toolbar.pack()
 
-            self.prev_in_graph.update(to_add)
-            color = next(COLORS)
+        to_add = [column for column in df.columns]
+        if not to_add:
+            return
 
-            for plot in to_add:
-                self.ax.plot(df[plot], color=color, ls=lss[plot])
+        self.prev_in_graph.update(to_add)
+        color = next(COLORS)
 
-            self.ylim = self.ax.get_ylim()
+        for plot in to_add:
+            self.ax.plot(df[plot], color=color, ls=lss[plot])
 
-            if self.prev_int_bounds.get():
-                # bind labeling of integration ranges
-                self.curx = self.ax.axvline(color="red", ls="dashed", alpha=0)
-                self.fig.canvas.mpl_connect("button_press_event", self.modify_bounds)
-                self.fig.canvas.mpl_connect("motion_notify_event", self.draw_range_name)
+        self.ylim = self.ax.get_ylim()
 
-            self.prev_legend_elements["handles"].append(
-                Line2D(
-                    [0],
-                    [0],
-                    marker="o",
-                    markerfacecolor=color,
-                    markeredgecolor="none",
-                    ls="none",
-                    markersize=10,
-                )
+        if self.prev_int_bounds.get():
+            # bind labeling of integration ranges
+            self.curx = self.ax.axvline(color="red", ls="dashed", alpha=0)
+            self.canvas.mpl_connect("button_press_event", self.modify_bounds)
+            self.canvas.mpl_connect("motion_notify_event", self.draw_range_name)
+
+        self.prev_legend_elements["handles"].append(
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                markerfacecolor=color,
+                markeredgecolor="none",
+                ls="none",
+                markersize=10,
             )
-            self.prev_legend_elements["labels"].append(name)
-            base_legend_elements = {
-                "handles": [
-                    Line2D([0], [0], color="black", ls=ls, markersize=10)
-                    for key, ls in lss.items()
-                    if key in self.prev_in_graph
-                ],
-                "labels": [SIGNAL for SIGNAL in SIGNALS if SIGNAL in self.prev_in_graph],
-            }
+        )
+        self.prev_legend_elements["labels"].append(name)
+        base_legend_elements = {
+            "handles": [
+                Line2D([0], [0], color="black", ls=ls, markersize=10)
+                for key, ls in lss.items()
+                if key in self.prev_in_graph
+            ],
+            "labels": [SIGNAL for SIGNAL in SIGNALS if SIGNAL in self.prev_in_graph],
+        }
 
-            objs = self.fig.gca().findobj(matplotlib.legend.Legend)
-            for obj in objs:
-                obj.remove()
+        objs = self.ax.findobj(matplotlib.legend.Legend)
+        for obj in objs:
+            obj.remove()
 
-            self.ax.set_xlabel("Minutes")
-            base_legend = self.ax.legend(**base_legend_elements, loc="upper left")
-            self.ax.legend(**self.prev_legend_elements, loc="upper right")
-            self.fig.gca().add_artist(base_legend)
-            plt.show(block=False)
-        
+        self.ax.set_xlabel("Minutes")
+        base_legend = self.ax.legend(**base_legend_elements, loc="upper left")
+        self.ax.legend(**self.prev_legend_elements, loc="upper right")
+        self.ax.add_artist(base_legend)
+        self.canvas.draw()
+
     def set_integration_bounds(self):
         window = tk.Toplevel(self)
         window.title("Integration Bounds")
@@ -780,6 +802,7 @@ class App(tk.Frame):
             self.int_bounds = {item["values"][0]: item["values"][1:] for item in items}
             window.destroy()
         window.protocol("WM_DELETE_WINDOW", on_closing)
+        window.wait_window()
 
     def set_au_thresh(self):
         # entry validation
@@ -795,6 +818,7 @@ class App(tk.Frame):
             
         window = tk.Toplevel(self)
         window.title("Set Saturation Thresholds")
+        
         val_float = window.register(check_float)
 
         # switch entry state based on checkbutton
@@ -810,6 +834,7 @@ class App(tk.Frame):
             entry = ttk.Entry(window,validatecommand=(val_float, "%P", "%s"), validate="key", textvariable=eval(f"self.au_thresh_{SIGNAL}"), state=state)
             entry.grid(row=i, column=2)
             entries.update({SIGNAL: entry})
+        window.wait_window()
             
 def gui():
     root = tk.Tk()
