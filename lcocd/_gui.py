@@ -181,8 +181,7 @@ class App(tk.Frame):
         menu_corr.add_checkbutton(label="Linear baseline correction", variable=self.settings_correct)
         menu_corr.add_checkbutton(label="Auto-align traces", variable=self.settings_align)
         menu_corr.add_separator()
-        menu_corr.add_checkbutton(label = "Enable saturation warning", variable=self.settings_satur)
-        menu_corr.add_command(label="Set saturation thresholds", command=self.set_au_thresh)
+        menu_corr.add_command(label="Enable saturation warning", command=self.set_au_thresh)
 
         # delete
         menu_set.add_separator()
@@ -207,7 +206,6 @@ class App(tk.Frame):
 
         # settings
         self.settings_correct = tk.BooleanVar(value=True)
-        self.settings_satur = tk.BooleanVar(value=False)
         self.settings_file_format = tk.StringVar(value=FILE_FORMATS[0])
         self.settings_skip_exist = tk.BooleanVar(value=True)
         self.settings_num_rows = tk.IntVar(value=25)
@@ -596,7 +594,7 @@ class App(tk.Frame):
                         keys=[(num, ananame)],
                         names=["Sample", "Name", "Signal"],
                     )
-                    if self.settings_satur.get():
+                    if any(self.__dict__[f"au_thresh_use_{SIGNAL}"].get() for SIGNAL in SIGNALS):
                         warning_text = ", ".join(
                             [
                                 SIGNAL
@@ -650,6 +648,7 @@ class App(tk.Frame):
                     name_win.lift(aboveThis=self.fig.canvas._tkcanvas)
                     name = tk.StringVar(value = f"Range {len(self.int_bounds)}")
                     name_entry = tk.Entry(name_win, width=40, textvariable=name)
+                    name_entry.bind("<Return>", lambda e: name_win.destroy())
                     name_entry.grid()
                     tk.Button(name_win, text = "OK",command = name_win.destroy).grid()
                     name_win.wait_window()
