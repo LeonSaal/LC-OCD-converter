@@ -280,8 +280,8 @@ class App(tk.Frame):
 
         browser_frame.grid(column=0, row=2, sticky=tk.W+tk.E)
         ttk.Label(browser_frame, text = "").pack(side=tk.LEFT)
-        self.browser_table.pack(side=tk.LEFT)
-        self.browser_scroll.pack(side=tk.LEFT)
+        self.browser_table.pack(side=tk.LEFT, expand=1, fill=tk.Y)
+        self.browser_scroll.pack(side=tk.LEFT, expand=1, fill=tk.Y)
         ttk.Label(browser_frame, text = "").pack(side=tk.LEFT)
         
         # progressbar
