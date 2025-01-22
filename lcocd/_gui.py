@@ -217,6 +217,8 @@ class App(tk.Frame):
         self.prev_in_graph = set()
         self.xranges = []
         self.tmp_xrange = {}
+        self.sample_legend = None
+        self.var_legend = None
 
         # integration
         self.int_bounds = {}
@@ -469,15 +471,16 @@ class App(tk.Frame):
                 self.browser_paths.insert(parent, tk.END, child.as_posix(), text=name, values=[])
 
     def set_input_path(self):
-        path = askdirectory()
+        path = askdirectory(initialdir=self.input_path.get())
         if not path:
             return
         self.input_path.set(path)
+        self.browser_table.delete(*self.browser_table.get_children())
         self.browser_update_files_in_path()
         self.browser_update_tbl()
 
     def set_output_path(self):
-        p = askdirectory(initialdir=self.input_path)
+        p = askdirectory(initialdir=self.input_path.get())
         self.output_path.set(p if p else "")  
 
     def browser_change_path(self, event=None):
@@ -624,6 +627,8 @@ class App(tk.Frame):
         self.prev_legend_elements = {"handles": [], "labels": []}
         self.mpl_window.destroy()
         self.canvas = None
+        self.fig = None
+        self.ax = None
 
     def modify_bounds(self, event=None):
         if not event.xdata:
@@ -724,7 +729,6 @@ class App(tk.Frame):
 
         if not self.canvas: 
             self.fig = Figure()
-
             self.ax = self.fig.add_subplot()
             self.mpl_window = tk.Toplevel(self)
 
@@ -735,10 +739,33 @@ class App(tk.Frame):
             # bind clear to closing of window
             self.fig.canvas.mpl_connect("close_event", self.clear_preview)
             
+            def update_figure(event=None):
+                if re.match("^"+ re.escape(".!app.!toplevel")+"\d*$",str(event.widget)):
+                    if self.sample_legend and self.var_legend:
+                        padding = 50
+                        # get figdim
+                        wf, hf  = self.fig.get_figwidth() * self.fig.dpi, self.fig.get_figheight() * self.fig.dpi
+
+                        # get legend dim
+                        w = self.sample_legend.get_frame().get_width() + padding
+                        h = self.var_legend.get_frame().get_height() + padding
+
+                        right, bottom, left, top = 1-w/wf, h/hf, padding/wf, 1- padding/hf
+                        try:
+                            self.fig.subplots_adjust(left, bottom, right, top)
+                            self.canvas.draw()
+                        except ValueError:
+                            pass
+
+            
+            self.mpl_window.bind("<Configure>", lambda e: update_figure(e))
+
             # pack_toolbar=False will make it easier to use a layout manager later on.
             toolbar = NavigationToolbar2Tk(self.canvas, self.mpl_window)
             toolbar.update()
-            self.canvas.get_tk_widget().pack()
+            # https://coderslegacy.com/figurecanvastkagg-matplotlib-tkinter/#google_vignette
+            self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            self.canvas.get_tk_widget().bind("<Double-Button-1>", lambda e: toolbar.home())
             toolbar.pack()
 
         to_add = [column for column in df.columns]
@@ -785,9 +812,9 @@ class App(tk.Frame):
             obj.remove()
 
         self.ax.set_xlabel("Minutes")
-        base_legend = self.ax.legend(**base_legend_elements, loc="upper left")
-        self.ax.legend(**self.prev_legend_elements, loc="upper right")
-        self.ax.add_artist(base_legend)
+        self.var_legend = self.ax.legend(**base_legend_elements, loc="upper center", bbox_to_anchor = (0.5,0), frameon=False, ncol=4, borderaxespad = 3.5)
+        self.sample_legend = self.ax.legend(**self.prev_legend_elements, loc="upper left", bbox_to_anchor = (1,1), frameon=False)
+        self.ax.add_artist(self.var_legend)
         self.canvas.draw()
 
     def set_integration_bounds(self):

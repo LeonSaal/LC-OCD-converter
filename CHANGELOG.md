@@ -7,6 +7,7 @@
 - remodeled progressbar with tk.Canvas, so that text can be written inside of bar
 - remodeled preview from scratch so popout-window is slave of main window
 - added range name input for preview bound definition
+- moved legend outside preview
 
 # December 2024
 - rebuild GUI with pure TKinter
