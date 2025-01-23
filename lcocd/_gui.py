@@ -409,7 +409,7 @@ class App(tk.Frame):
         text = """
         Developed by:\tLeon Saal\n
         Site:\t\t\tgithub.com/LeonSaal/LC-OCD-converter\n
-        Last Modified:\tLAST_MODIFIED
+        Last Modified:\t23-01-2025
         """
         ttk.Label(window, text=text).grid()
 
@@ -635,9 +635,7 @@ class App(tk.Frame):
             return
 
         x= round(event.xdata, 1)
-        if event.dblclick and not event.key:
-            self.toolbar.home()
-        elif event.dblclick and event.key=="ctrl+shift":
+        if event.dblclick and event.key=="ctrl+shift":
             self.int_bounds = {name:xrange for name, xrange in self.int_bounds.items() if not xrange[0] < x < xrange[1]}
             self.draw_range_name(event)
 
@@ -742,25 +740,23 @@ class App(tk.Frame):
             self.fig.canvas.mpl_connect("close_event", self.clear_preview)
             
             def update_figure(event=None):
-                if re.match("^"+ re.escape(".!app.!toplevel")+"\d*$",str(event.widget)):
-                    if self.sample_legend and self.var_legend:
-                        padding = 50
-                        # get figdim
-                        wf, hf  = self.fig.get_figwidth() * self.fig.dpi, self.fig.get_figheight() * self.fig.dpi
+                if self.sample_legend and self.var_legend:
+                    padding = 50
+                    # get figdim
+                    wf, hf  = self.fig.get_figwidth() * self.fig.dpi, self.fig.get_figheight() * self.fig.dpi
 
-                        # get legend dim
-                        w = self.sample_legend.get_frame().get_width() + padding
-                        h = self.var_legend.get_frame().get_height() + padding
+                    # get legend dim
+                    w = self.sample_legend.get_frame().get_width() + padding
+                    h = self.var_legend.get_frame().get_height() + padding
 
-                        right, bottom, left, top = 1-w/wf, h/hf, padding/wf, 1- padding/hf
-                        try:
-                            self.fig.subplots_adjust(left, bottom, right, top)
-                            self.canvas.draw()
-                        except ValueError:
-                            pass
+                    right, bottom, left, top = 1-w/wf, h/hf, padding/wf, 1- padding/hf
+                    try:
+                        self.fig.subplots_adjust(left, bottom, right, top)
+                        self.canvas.draw()
+                    except ValueError:
+                        pass
 
-            
-            self.mpl_window.bind("<Configure>", lambda e: update_figure(e))
+            self.fig.canvas.mpl_connect("resize_event", update_figure)
 
             # pack_toolbar=False will make it easier to use a layout manager later on.
             self.toolbar = NavigationToolbar2Tk(self.canvas, self.mpl_window)
@@ -786,8 +782,6 @@ class App(tk.Frame):
             self.curx = self.ax.axvline(color="red", ls="dashed", alpha=0)
             self.canvas.mpl_connect("button_press_event", self.modify_bounds)
             self.canvas.mpl_connect("motion_notify_event", self.draw_range_name)
-        else:
-            self.canvas.get_tk_widget().bind("<Double-Button-1>", lambda e: self.toolbar.home())
 
 
         self.prev_legend_elements["handles"].append(
