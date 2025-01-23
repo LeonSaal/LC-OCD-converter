@@ -635,7 +635,9 @@ class App(tk.Frame):
             return
 
         x= round(event.xdata, 1)
-        if event.dblclick and event.key=="ctrl+shift":
+        if event.dblclick and not event.key:
+            self.toolbar.home()
+        elif event.dblclick and event.key=="ctrl+shift":
             self.int_bounds = {name:xrange for name, xrange in self.int_bounds.items() if not xrange[0] < x < xrange[1]}
             self.draw_range_name(event)
 
@@ -761,12 +763,11 @@ class App(tk.Frame):
             self.mpl_window.bind("<Configure>", lambda e: update_figure(e))
 
             # pack_toolbar=False will make it easier to use a layout manager later on.
-            toolbar = NavigationToolbar2Tk(self.canvas, self.mpl_window)
-            toolbar.update()
+            self.toolbar = NavigationToolbar2Tk(self.canvas, self.mpl_window)
+            self.toolbar.update()
             # https://coderslegacy.com/figurecanvastkagg-matplotlib-tkinter/#google_vignette
             self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-            self.canvas.get_tk_widget().bind("<Double-Button-1>", lambda e: toolbar.home())
-            toolbar.pack()
+            self.toolbar.pack()
 
         to_add = [column for column in df.columns]
         if not to_add:
@@ -785,6 +786,9 @@ class App(tk.Frame):
             self.curx = self.ax.axvline(color="red", ls="dashed", alpha=0)
             self.canvas.mpl_connect("button_press_event", self.modify_bounds)
             self.canvas.mpl_connect("motion_notify_event", self.draw_range_name)
+        else:
+            self.canvas.get_tk_widget().bind("<Double-Button-1>", lambda e: self.toolbar.home())
+
 
         self.prev_legend_elements["handles"].append(
             Line2D(
